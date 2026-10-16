@@ -21,6 +21,7 @@
 
     <modules>
         <module>libs/stateverdict-dispatch</module>
+        <module>apps/stateverdict-core</module>
         <module>examples/commerce/order-service</module>
         <module>examples/commerce/payment-service</module>
     </modules>
