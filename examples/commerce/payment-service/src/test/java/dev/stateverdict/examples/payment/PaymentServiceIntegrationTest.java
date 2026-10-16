@@ -50,6 +50,16 @@ class PaymentServiceIntegrationTest {
     }
 
     @Test
+    void dispatchControlApiDoesNotExistInDirectMode() throws Exception {
+        HttpResponse<String> response = HttpClient.newHttpClient().send(
+                HttpRequest.newBuilder(URI.create(
+                        "http://localhost:" + port + "/_stateverdict/dispatch/runs/any/journal")).build(),
+                HttpResponse.BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(404);
+    }
+
+    @Test
     void paymentCapturesTableIsMigratedAndEmpty() {
         Integer rows = jdbc.sql("SELECT count(*) FROM payment_captures").query(Integer.class).single();
 

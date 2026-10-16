@@ -1,9 +1,11 @@
 package dev.stateverdict.examples.order;
 
 import java.time.Clock;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -23,6 +25,9 @@ public class CheckoutService {
 
     private static final Logger log = LoggerFactory.getLogger(CheckoutService.class);
 
+    /** Kafka header carrying the caller's correlation id, documented in docs/contracts. */
+    public static final String CORRELATION_HEADER = "correlation-id";
+
     private final OrderRepository orders;
     private final KafkaTemplate<String, String> kafka;
     private final JsonMapper json;
@@ -35,7 +40,11 @@ public class CheckoutService {
         this.clock = Clock.systemUTC();
     }
 
-    public Order checkout(long amountCents) {
+    /**
+     * @param correlationId optional id supplied by the caller (for StateVerdict, the run id); it is
+     *                      copied onto the published event as the {@value #CORRELATION_HEADER} header
+     */
+    public Order checkout(long amountCents, String correlationId) {
         if (amountCents <= 0) {
             throw new IllegalArgumentException("amountCents must be positive");
         }
@@ -43,18 +52,22 @@ public class CheckoutService {
 
         PaymentRequested event =
                 new PaymentRequested(UUID.randomUUID(), order.id(), order.amountCents(), Instant.now(clock));
-        publish(event);
+        publish(event, correlationId);
 
-        log.info("checkout started orderId={} eventId={} amountCents={}",
-                order.id(), event.eventId(), event.amountCents());
+        log.info("checkout started orderId={} eventId={} amountCents={} correlationId={}",
+                order.id(), event.eventId(), event.amountCents(), correlationId);
         return order;
     }
 
-    private void publish(PaymentRequested event) {
+    private void publish(PaymentRequested event, String correlationId) {
+        // Keyed by order id: all events for one order land on the same partition, in order.
+        ProducerRecord<String, String> record = new ProducerRecord<>(
+                KafkaTopicsConfig.PAYMENT_REQUESTED, event.orderId().toString(), json.writeValueAsString(event));
+        if (correlationId != null) {
+            record.headers().add(CORRELATION_HEADER, correlationId.getBytes(StandardCharsets.UTF_8));
+        }
         try {
-            // Keyed by order id: all events for one order land on the same partition, in order.
-            kafka.send(KafkaTopicsConfig.PAYMENT_REQUESTED, event.orderId().toString(), json.writeValueAsString(event))
-                    .get(10, TimeUnit.SECONDS);
+            kafka.send(record).get(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new EventPublishException(event, e);

@@ -8,6 +8,7 @@ Published by **order-service** when a checkout starts. Consumed by **payment-ser
 | Partitions | 1 (v1 controlled-dispatch topology, spec section 4) |
 | Key | order id (UUID string), so all events for one order stay in order |
 | Value | JSON, UTF-8 |
+| Headers | `correlation-id` (optional): copied from the `X-Correlation-Id` HTTP header of `POST /orders`; StateVerdict uses it as the run id |
 | Delivery guarantee | at least once: consumers **must** expect duplicates |
 
 ## Value

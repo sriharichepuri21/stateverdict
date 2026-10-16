@@ -22,3 +22,9 @@ management:
   endpoint:
     health:
       show-details: always
+
+# Test-mode dispatch adapter (spec section 3). "direct" is production behaviour.
+# "controlled" enables fault injection and the /_stateverdict control API: never in production.
+stateverdict:
+  dispatch:
+    mode: ${STATEVERDICT_DISPATCH_MODE:direct}

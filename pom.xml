@@ -20,6 +20,7 @@
     <description>Fault exploration and evidence-based correctness testing for event-driven microservices</description>
 
     <modules>
+        <module>libs/stateverdict-dispatch</module>
         <module>examples/commerce/order-service</module>
         <module>examples/commerce/payment-service</module>
     </modules>
