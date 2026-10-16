@@ -72,6 +72,9 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       # This stack is a test environment, so StateVerdict may control deliveries.
       STATEVERDICT_DISPATCH_MODE: controlled
+      # The demo stack starts with the deliberately naive handler so the defect is visible.
+      # Run with PAYMENT_CAPTURE_HANDLER=idempotent to get the fixed handler.
+      PAYMENT_CAPTURE_HANDLER: ${PAYMENT_CAPTURE_HANDLER:-naive}
     ports:
       - "8082:8082"
     depends_on:
