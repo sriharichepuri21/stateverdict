@@ -13,6 +13,9 @@ import tools.jackson.databind.JsonNode;
  * <p>Evidence: {@code payment.captures}, the payment service's committed-state response for the
  * order ({@code GET /captures?orderId=}). It counts committed captures, not deliveries: a duplicate
  * delivery handled idempotently satisfies this rule.
+ *
+ * <p>Zero captures also satisfies it: SV-002 is about uniqueness only. "Every paid order has a
+ * capture" is a separate completeness rule, so that each rule fails for exactly one reason.
  */
 public final class CaptureUniquenessRule implements Rule {
 

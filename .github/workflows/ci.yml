@@ -95,7 +95,7 @@ jobs:
           if [ "$code" -ne 1 ]; then echo "::error::expected replay FAIL (exit 1), got exit $code"; exit 1; fi
       - name: Upload StateVerdict reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: stateverdict-reports
           path: artifacts/
