@@ -211,6 +211,27 @@ class DuplicateDeliveryScenarioTest {
     }
 
     @Test
+    void repeatedTrialsEachUseAFreshRunAndResetBeforeAndAfter() throws Exception {
+        committedCaptures = 2;
+        DuplicateDeliveryScenario.Config config = new DuplicateDeliveryScenario.Config(
+                base, base, 2, 129_900, Duration.ofMillis(800), Duration.ZERO);
+        DuplicateDeliveryScenario scenario =
+                new DuplicateDeliveryScenario(config, List.of(new CaptureUniquenessRule()), JSON);
+
+        List<RunReport> reports = List.of(scenario.run(), scenario.run(), scenario.run());
+        dev.stateverdict.core.report.TrialSummary summary =
+                dev.stateverdict.core.report.TrialSummary.of(DuplicateDeliveryScenario.NAME, 2, reports);
+
+        assertThat(reports).extracting(RunReport::runId).doesNotHaveDuplicates();
+        assertThat(summary.count(Verdict.FAIL)).isEqualTo(3);
+        assertThat(summary.overall()).isEqualTo(Verdict.FAIL);
+        for (RunReport report : reports) {
+            assertThat(requests.stream().filter(r -> r.equals("DELETE /_stateverdict/dispatch/runs/" + report.runId())))
+                    .hasSize(2);
+        }
+    }
+
+    @Test
     void evidenceCarriesProvenance() throws Exception {
         committedCaptures = 2;
 

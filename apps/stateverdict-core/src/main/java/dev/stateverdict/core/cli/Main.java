@@ -2,6 +2,7 @@ package dev.stateverdict.core.cli;
 
 import dev.stateverdict.core.report.ReportWriter;
 import dev.stateverdict.core.report.RunReport;
+import dev.stateverdict.core.report.TrialSummary;
 import dev.stateverdict.core.rules.CaptureUniquenessRule;
 import dev.stateverdict.core.rules.Rule;
 import dev.stateverdict.core.runner.DuplicateDeliveryScenario;
@@ -22,11 +23,13 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <pre>
  * stateverdict run checkout-duplicate-payment-request [--order-url URL] [--payment-url URL]
- *                  [--copies N] [--deadline-ms MS] [--settle-ms MS] [--report PATH]
+ *                  [--copies N] [--deadline-ms MS] [--settle-ms MS] [--trials N] [--report PATH]
  * stateverdict replay-evidence REPORT.json
  * </pre>
  *
- * Exit codes: 0 PASS, 1 FAIL, 2 INCONCLUSIVE, 3 ERROR or invalid usage (spec section 8).
+ * Exit codes: 0 PASS, 1 FAIL, 2 INCONCLUSIVE, 3 ERROR or invalid usage (spec section 8). With
+ * {@code --trials N > 1}, the exit code is the shared verdict if every trial agreed, otherwise 2:
+ * a result that does not reproduce is not a verified result.
  */
 public final class Main {
 
@@ -40,16 +43,20 @@ public final class Main {
                 --copies N          deliveries of payment.requested; 1 = no fault (default 2)
                 --deadline-ms MS    max wait for all deliveries (default 20000)
                 --settle-ms MS      extra wait before reading state (default 2000)
-                --report PATH       write the JSON report here
+                --trials N          repeat N times, each from clean state, and summarise (default 1)
+                --report PATH       write the JSON report (or trial summary) here
               stateverdict replay-evidence REPORT.json
                 Re-evaluate the rules on a saved report's evidence. Contacts no service.
 
             Exit codes: 0 PASS, 1 FAIL, 2 INCONCLUSIVE, 3 ERROR or invalid usage
+              With --trials > 1: the shared verdict if all trials agree, otherwise 2
             """;
+
+    static final int MAX_TRIALS = 1000;
 
     private static final List<Rule> RULES = List.of(new CaptureUniquenessRule());
     private static final java.util.Set<String> RUN_OPTIONS =
-            java.util.Set.of("--order-url", "--payment-url", "--copies", "--deadline-ms", "--settle-ms", "--report");
+            java.util.Set.of("--order-url", "--payment-url", "--copies", "--deadline-ms", "--settle-ms", "--trials", "--report");
 
     public static void main(String[] args) {
         System.exit(run(args, System.out, System.err));
@@ -89,8 +96,30 @@ public final class Main {
                 129_900,
                 Duration.ofMillis(intOption(options, "--deadline-ms", 20_000)),
                 Duration.ofMillis(intOption(options, "--settle-ms", 2_000)));
-        RunReport report = new DuplicateDeliveryScenario(config, RULES, JsonMapper.builder().build()).run();
-        return finish(report, options.get("--report"), writer, out);
+        int trials = intOption(options, "--trials", 1);
+        if (trials < 1 || trials > MAX_TRIALS) {
+            throw new IllegalArgumentException("--trials must be between 1 and " + MAX_TRIALS);
+        }
+        DuplicateDeliveryScenario scenario = new DuplicateDeliveryScenario(config, RULES, JsonMapper.builder().build());
+        if (trials == 1) {
+            return finish(scenario.run(), options.get("--report"), writer, out);
+        }
+        List<RunReport> reports = new java.util.ArrayList<>();
+        for (int trial = 1; trial <= trials; trial++) {
+            RunReport report = scenario.run();
+            out.println("trial " + trial + "/" + trials + ": " + report.verdict() + " (" + report.runId() + ")");
+            reports.add(report);
+        }
+        TrialSummary summary = TrialSummary.of(DuplicateDeliveryScenario.NAME, config.copies(), reports);
+        out.println();
+        out.print(summary.toConsole());
+        String reportPath = options.get("--report");
+        if (reportPath != null) {
+            write(Path.of(reportPath), writer.toJson(summary));
+            out.println("Report:  " + reportPath);
+        }
+        out.println("Exit code: " + summary.overall().exitCode());
+        return summary.overall().exitCode();
     }
 
     private static int replay(Path reportPath, ReportWriter writer, PrintStream out) throws IOException {
@@ -103,15 +132,18 @@ public final class Main {
             throws IOException {
         out.print(writer.toConsole(report));
         if (reportPath != null) {
-            Path path = Path.of(reportPath);
-            if (path.getParent() != null) {
-                Files.createDirectories(path.getParent());
-            }
-            Files.writeString(path, writer.toJson(report));
-            out.println("Report:          " + path);
+            write(Path.of(reportPath), writer.toJson(report));
+            out.println("Report:          " + reportPath);
         }
         out.println("Exit code:       " + report.verdict().exitCode());
         return report.verdict().exitCode();
+    }
+
+    private static void write(Path path, String content) throws IOException {
+        if (path.getParent() != null) {
+            Files.createDirectories(path.getParent());
+        }
+        Files.writeString(path, content);
     }
 
     private static Map<String, String> options(String[] args, int from) {
