@@ -17,6 +17,10 @@ public final class ReportWriter {
         return json.writerWithDefaultPrettyPrinter().writeValueAsString(report);
     }
 
+    public String toJson(TrialSummary summary) {
+        return json.writerWithDefaultPrettyPrinter().writeValueAsString(summary);
+    }
+
     public RunReport fromJson(String text) {
         return json.readValue(text, RunReport.class);
     }

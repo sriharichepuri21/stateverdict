@@ -4,9 +4,9 @@ Update this file at the end of every working session (spec section 12, "Session 
 
 ## Current state
 
-- **Branch:** `feat/core-verdict`
-- **Phase:** Technical spike, step 4 of 7: first verdict (core, SV-002, CLI)
-- **Last green command:** CI on PR #4: `mvn -B verify` (70 tests, 0 failures); `stateverdict run` baseline exit 0, duplicate exit 1, `replay-evidence` exit 1
+- **Branch:** `feat/repetitions`
+- **Phase:** Technical spike, step 5 of 7: measured reproduction
+- **Last green command:** CI run 38944476200 on PR #5: 77 tests, 0 failures; `scripts/measure-reproduction.sh 10`: baseline PASS 10/10, duplicate FAIL 10/10
 - **Last failing command:** none yet
 
 ## Spike progress
@@ -16,8 +16,8 @@ Update this file at the end of every working session (spec section 12, "Session 
 | 1 | Repo, Compose, two services, Postgres, Kafka, health checks | Done | PR #1 merged; CI green |
 | 2 | Normal checkout flow with committed capture | Done | PR #2 merged |
 | 3 | Dispatch scheduler: hold, release, duplicate | Done | PR #3 merged |
-| 4 | Vulnerable handler + capture-count rule → FAIL | Done (awaiting merge) | PR #4: 70 tests green; in CI against the real stack, baseline → PASS, duplicate delivery → FAIL (SV-002), replay of saved evidence → FAIL |
-| 5 | Ten clean-state repetitions, measured reproduction | Not started | |
+| 4 | Vulnerable handler + capture-count rule → FAIL | Done | PR #4 merged |
+| 5 | Ten clean-state repetitions, measured reproduction | Done (awaiting merge) | PR #5: baseline PASS 10/10, duplicate FAIL 10/10; `docs/results/spike-reproduction.md` |
 | 6 | Corrected idempotent handler → PASS | Not started | |
 | 7 | CLI, report, docs, one-command reproduction | Not started | |
 
@@ -27,7 +27,7 @@ None.
 
 ## Next action
 
-Get PR #4 green and merged, then step 5: run the duplicate scenario ten times from clean state and record the real reproduction frequency, UNKNOWN and ERROR counts.
+Merge PR #5, then step 6: add the idempotent payment handler and re-measure; duplicate should flip to PASS 10/10 with the baseline unchanged.
 
 ## Open questions (spec appendix B)
 

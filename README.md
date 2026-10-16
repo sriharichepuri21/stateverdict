@@ -60,6 +60,15 @@ java -jar $CLI run checkout-duplicate-payment-request --copies 2 --report artifa
 java -jar $CLI replay-evidence artifacts/duplicate.json
 ```
 
+Measure how reliably a result reproduces (each trial starts from clean state):
+
+```bash
+java -jar $CLI run checkout-duplicate-payment-request --copies 2 --trials 10
+scripts/measure-reproduction.sh 10   # baseline and duplicate, 10 trials each
+```
+
+Latest measured results: [docs/results/spike-reproduction.md](docs/results/spike-reproduction.md).
+
 Exit codes: `0` PASS, `1` FAIL, `2` INCONCLUSIVE, `3` ERROR. See
 [ADR-004](docs/decisions/ADR-004-execution-and-rule-truth-are-separate.md) for how verdicts are derived.
 

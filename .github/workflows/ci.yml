@@ -93,6 +93,8 @@ jobs:
           code=$?
           set -e
           if [ "$code" -ne 1 ]; then echo "::error::expected replay FAIL (exit 1), got exit $code"; exit 1; fi
+      - name: "StateVerdict: measure reproduction over 10 clean-state trials each"
+        run: scripts/measure-reproduction.sh 10
       - name: Upload StateVerdict reports
         if: always()
         uses: actions/upload-artifact@v5

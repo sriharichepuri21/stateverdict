@@ -41,6 +41,12 @@ class MainTest {
     }
 
     @Test
+    void trialsOutOfRangeAreRejected() {
+        assertThat(run("run", "checkout-duplicate-payment-request", "--trials", "0")).isEqualTo(Main.USAGE_ERROR);
+        assertThat(err.toString(StandardCharsets.UTF_8)).contains("--trials must be between 1 and");
+    }
+
+    @Test
     void missingReportFileForReplayIsAnError() {
         assertThat(run("replay-evidence", "does-not-exist.json")).isEqualTo(Main.USAGE_ERROR);
     }
