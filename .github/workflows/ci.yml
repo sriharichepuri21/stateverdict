@@ -26,6 +26,22 @@ jobs:
           cache: maven
       - name: Build and run all tests
         run: mvn -B verify
+      - name: Report test counts (and fail if no tests ran)
+        if: always()
+        run: |
+          shopt -s globstar nullglob
+          reports=(**/target/surefire-reports/TEST-*.xml)
+          tests=0; failures=0; errors=0; skipped=0
+          for f in "${reports[@]}"; do
+            line=$(grep -m1 -o '<testsuite[^>]*>' "$f")
+            get() { echo "$line" | grep -o " $1=\"[0-9]*\"" | grep -o '[0-9]*'; }
+            tests=$((tests + $(get tests))); failures=$((failures + $(get failures)))
+            errors=$((errors + $(get errors))); skipped=$((skipped + $(get skipped)))
+          done
+          summary="${tests} tests, ${failures} failures, ${errors} errors, ${skipped} skipped (${#reports[@]} test classes)"
+          echo "::notice title=Test results::${summary}"
+          echo "### Test results: ${summary}" >> "$GITHUB_STEP_SUMMARY"
+          [ "$tests" -gt 0 ] || { echo "::error::No tests ran"; exit 1; }
 
   compose-smoke:
     name: Docker Compose smoke test
