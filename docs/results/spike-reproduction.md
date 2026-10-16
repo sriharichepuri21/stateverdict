@@ -1,10 +1,12 @@
 # Spike result: reproduction of the duplicate-capture defect
 
 - **Date:** 2026-10-16
-- **Commit measured:** branch `feat/repetitions` (PR #5)
+- **Commits measured:** branch `feat/repetitions` (PR #5, naive handler only) and
+  `feat/idempotent-handler` (PR #6, both handlers)
 - **Where:** GitHub Actions, `ubuntu-24.04` runner, full Compose stack (PostgreSQL 17, Kafka 4.1 KRaft, both services)
-- **CI run:** [38944476200](https://github.com/sriharichepuri21/stateverdict/actions/runs/38944476200)
-- **Command:** `scripts/measure-reproduction.sh 10`
+- **CI runs:** [38944476200](https://github.com/sriharichepuri21/stateverdict/actions/runs/38944476200) (naive),
+  [38946710200](https://github.com/sriharichepuri21/stateverdict/actions/runs/38946710200) (naive and idempotent)
+- **Commands:** `scripts/measure-reproduction.sh 10 naive`, then `scripts/measure-reproduction.sh 10 idempotent`
 
 ## Setup
 
@@ -30,6 +32,35 @@ so trials cannot see each other's captures.
 Every duplicate trial observed exactly two committed captures for one order. Every baseline trial
 observed exactly one. No trial timed out, lost evidence or hit an infrastructure error.
 
+## Before and after the fix (CI run 38946710200)
+
+Same scenario, same rule, same 10 + 10 clean-state trials. Only the payment handler changes: the
+stack is started with the naive handler, then the payment service is recreated with the
+idempotent one.
+
+| Handler | Configuration | Trials | PASS | FAIL | INCONCLUSIVE | ERROR | Median per trial |
+|---|---|---|---|---|---|---|---|
+| naive | baseline | 10 | **10** | 0 | 0 | 0 | 2053 ms |
+| naive | duplicate | 10 | 0 | **10** | 0 | 0 | 2044 ms |
+| idempotent | baseline | 10 | **10** | 0 | 0 | 0 | 2042 ms |
+| idempotent | duplicate | 10 | **10** | 0 | 0 | 0 | 2287 ms |
+
+With the idempotent handler, the dispatcher journal still shows the event delivered twice, but only
+one capture is committed. StateVerdict tells "duplicate delivery" (expected, harmless) apart from
+"duplicate side effect" (the defect) because SV-002 reads committed captures, not deliveries.
+
+The higher median for idempotent/duplicate (about 240 ms) was not investigated. The idempotent
+trials run right after the payment service restarts, so JVM warm-up is one plausible cause, not a
+measured one.
+
+### A failure worth recording
+
+The first CI run of the idempotent trials ([38946344615](https://github.com/sriharichepuri21/stateverdict/actions/runs/38946344615))
+reported **ERROR 10/10**, each in about 6 ms. CI had started the trials as soon as the recreated
+container was running, before Spring had finished starting. StateVerdict could not reach the
+control API, classified that as `INFRA_ERROR`, and reported ERROR, not PASS. The CI ordering was
+fixed (`scripts/wait-healthy.sh`); the tool's behaviour was what ADR-004 requires.
+
 ## What this does and does not show
 
 - **Shows:** with the controlled dispatcher, the duplicate-capture defect reproduces on every trial,
@@ -43,5 +74,5 @@ observed exactly one. No trial timed out, lost evidence or hit an infrastructure
 - **Timing:** about 2 s of each trial is the configured settle window (`--settle-ms 2000`), which
   waits for late side effects after the expected deliveries arrive. Trial time is dominated by that
   wait, not by the services.
-- **Still to measure:** the same 10 + 10 trials after the idempotent fix (spike step 6). The
-  duplicate configuration is expected to flip to PASS 10/10 with the baseline unchanged.
+- **The fix is judged on behaviour, not code:** nothing in StateVerdict knows which handler is
+  running. The verdict flipped because the committed state changed.

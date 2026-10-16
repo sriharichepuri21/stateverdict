@@ -39,7 +39,7 @@ import tools.jackson.databind.json.JsonMapper;
 @Testcontainers
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "stateverdict.dispatch.mode=controlled")
+        properties = {"stateverdict.dispatch.mode=controlled", "payment.capture.handler=naive"})
 class ControlledDispatchFlowTest {
 
     @Container

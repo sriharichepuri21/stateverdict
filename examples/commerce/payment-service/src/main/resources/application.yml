@@ -28,3 +28,9 @@ management:
 stateverdict:
   dispatch:
     mode: ${STATEVERDICT_DISPATCH_MODE:direct}
+
+# Which capture handler runs: "idempotent" (default, correct) or "naive" (deliberately
+# double-captures redelivered events; for demonstrating StateVerdict only).
+payment:
+  capture:
+    handler: ${PAYMENT_CAPTURE_HANDLER:idempotent}
