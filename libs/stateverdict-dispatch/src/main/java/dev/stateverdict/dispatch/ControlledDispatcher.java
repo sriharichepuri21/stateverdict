@@ -74,6 +74,9 @@ public final class ControlledDispatcher implements Dispatcher, AutoCloseable {
     private final Map<String, LinkedHashMap<UUID, Held<?>>> heldByRun = new HashMap<>();
     private final Map<String, List<JournalEntry>> journalByRun = new HashMap<>();
     private final Map<String, Integer> attemptsByRunAndEvent = new HashMap<>();
+    // Incremented by reset(). A delivery that started before a reset must not write into the
+    // journal of the run's next use, so each delivery remembers the generation it started in.
+    private final Map<String, Long> generationByRun = new HashMap<>();
 
     public ControlledDispatcher() {
         this(Clock.systemUTC());
@@ -178,6 +181,7 @@ public final class ControlledDispatcher implements Dispatcher, AutoCloseable {
             }
             Deque<Rule> rules = rulesByRun.remove(runId);
             journalByRun.remove(runId);
+            generationByRun.merge(runId, 1L, Long::sum);
             attemptsByRunAndEvent.keySet().removeIf(key -> key.startsWith(runId + "|"));
             return new ResetSummary(discarded, rules == null ? 0 : rules.size());
         }
@@ -231,11 +235,16 @@ public final class ControlledDispatcher implements Dispatcher, AutoCloseable {
         return deliver(held.message(), held.handler());
     }
 
-    /** Runs the handler outside the lock, then journals the result. Never throws handler errors. */
+    /**
+     * Runs the handler outside the lock, then journals the result. Never throws handler errors.
+     * If the run was reset while the handler ran, the entry is returned but not journaled.
+     */
     private <T> JournalEntry deliver(InboundMessage<T> message, MessageHandler<T> handler) {
         int attempt;
+        long generation;
         synchronized (lock) {
             attempt = attemptsByRunAndEvent.merge(message.runId() + "|" + message.eventKey(), 1, Integer::sum);
+            generation = generationByRun.getOrDefault(message.runId(), 0L);
         }
         Outcome outcome;
         String error = null;
@@ -247,6 +256,10 @@ public final class ControlledDispatcher implements Dispatcher, AutoCloseable {
             error = e.getClass().getSimpleName() + ": " + e.getMessage();
         }
         synchronized (lock) {
+            if (generationByRun.getOrDefault(message.runId(), 0L) != generation) {
+                return new JournalEntry(UUID.randomUUID(), message.runId(), message.topic(), message.eventKey(),
+                        Action.DELIVERED, attempt, outcome, error, clock.instant());
+            }
             return append(message, Action.DELIVERED, attempt, outcome, error, UUID.randomUUID());
         }
     }

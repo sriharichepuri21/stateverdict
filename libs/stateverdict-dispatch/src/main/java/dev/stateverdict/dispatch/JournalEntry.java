@@ -7,7 +7,8 @@ import java.util.UUID;
  * One recorded dispatcher action. The journal is StateVerdict's evidence of what was actually
  * delivered, independent of what the business handler did with it.
  *
- * @param entryId  unique id of this entry; for deliveries this is the delivery attempt id
+ * @param entryId  unique id of this entry; for deliveries this is the delivery attempt id, for
+ *                 {@code HELD} entries it equals the token that releases the message
  * @param attempt  1-based delivery count for this {@code eventKey} within the run; {@code null}
  *                 for entries that are not deliveries
  * @param outcome  whether the handler completed; {@code null} for entries that are not deliveries

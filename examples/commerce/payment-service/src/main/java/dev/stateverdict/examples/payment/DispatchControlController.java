@@ -7,6 +7,7 @@ import dev.stateverdict.dispatch.JournalEntry;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -39,6 +40,9 @@ public class DispatchControlController {
     record ResetResponse(String runId, int discardedMessages, int unusedInterventions) {
     }
 
+    /** Same rule as the order service applies to X-Correlation-Id. */
+    private static final Pattern RUN_ID = Pattern.compile("[A-Za-z0-9._:-]{1,128}");
+
     private final ControlledDispatcher dispatcher;
 
     public DispatchControlController(ControlledDispatcher dispatcher) {
@@ -47,6 +51,7 @@ public class DispatchControlController {
 
     @PostMapping("/interventions")
     public ResponseEntity<Void> schedule(@PathVariable String runId, @RequestBody InterventionRequest request) {
+        requireValid(runId);
         String topic = request.topic() == null ? PaymentRequestedListener.TOPIC : request.topic();
         dispatcher.schedule(runId, topic, toIntervention(request));
         return ResponseEntity.accepted().build();
@@ -54,26 +59,31 @@ public class DispatchControlController {
 
     @GetMapping("/held")
     public List<HeldMessage> held(@PathVariable String runId) {
+        requireValid(runId);
         return dispatcher.held(runId);
     }
 
     @PostMapping("/held/{token}/release")
     public ResponseEntity<JournalEntry> release(@PathVariable String runId, @PathVariable UUID token) {
+        requireValid(runId);
         return ResponseEntity.of(dispatcher.release(runId, token));
     }
 
     @PostMapping("/held/release-all")
     public List<JournalEntry> releaseAll(@PathVariable String runId) {
+        requireValid(runId);
         return dispatcher.releaseAll(runId);
     }
 
     @GetMapping("/journal")
     public List<JournalEntry> journal(@PathVariable String runId) {
+        requireValid(runId);
         return dispatcher.journal(runId);
     }
 
     @DeleteMapping
     public ResetResponse reset(@PathVariable String runId) {
+        requireValid(runId);
         ControlledDispatcher.ResetSummary summary = dispatcher.reset(runId);
         return new ResetResponse(runId, summary.discardedMessages(), summary.unusedInterventions());
     }
@@ -81,6 +91,12 @@ public class DispatchControlController {
     @ExceptionHandler(IllegalArgumentException.class)
     ResponseEntity<String> badRequest(IllegalArgumentException e) {
         return ResponseEntity.badRequest().body(e.getMessage());
+    }
+
+    private static void requireValid(String runId) {
+        if (!RUN_ID.matcher(runId).matches()) {
+            throw new IllegalArgumentException("runId must be 1-128 characters of letters, digits, '.', '_', ':' or '-'");
+        }
     }
 
     private static Intervention toIntervention(InterventionRequest request) {

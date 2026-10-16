@@ -10,6 +10,8 @@ import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -296,6 +298,34 @@ class ControlledDispatcherTest {
 
             dispatcher.dispatch(message("run-1", "e1"), handler);
 
+            assertThat(dispatcher.journal("run-1")).singleElement()
+                    .satisfies(entry -> assertThat(entry.attempt()).isEqualTo(1));
+        }
+
+        @Test
+        void deliveryStillRunningDuringResetDoesNotLeakIntoTheNextUseOfTheRun() throws Exception {
+            CountDownLatch handlerStarted = new CountDownLatch(1);
+            CountDownLatch finishHandler = new CountDownLatch(1);
+            MessageHandler<String> slow = payload -> {
+                handlerStarted.countDown();
+                finishHandler.await();
+            };
+            Thread consumer = new Thread(() -> {
+                try {
+                    dispatcher.dispatch(message("run-1", "e1"), slow);
+                } catch (Exception e) {
+                    throw new IllegalStateException(e);
+                }
+            });
+            consumer.start();
+            assertThat(handlerStarted.await(5, TimeUnit.SECONDS)).isTrue();
+
+            dispatcher.reset("run-1");
+            finishHandler.countDown();
+            consumer.join(5_000);
+
+            assertThat(dispatcher.journal("run-1")).isEmpty();
+            dispatcher.dispatch(message("run-1", "e1"), handler);
             assertThat(dispatcher.journal("run-1")).singleElement()
                     .satisfies(entry -> assertThat(entry.attempt()).isEqualTo(1));
         }
