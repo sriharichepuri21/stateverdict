@@ -22,14 +22,13 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Payment capture behaviour against real Kafka and PostgreSQL.
+ * The <b>naive</b> capture handler against real Kafka and PostgreSQL.
  *
- * <p>The second test documents the deliberate defect in the current handler: a redelivered event is
- * captured twice. When the idempotent handler lands, that test is expected to change, which is the
- * point: it pins down today's behaviour so the change is visible.
+ * <p>The second test pins down the deliberate defect: a redelivered event is captured twice. The
+ * corrected behaviour is covered by {@link IdempotentCaptureFlowTest}.
  */
 @Testcontainers
-@SpringBootTest
+@SpringBootTest(properties = "payment.capture.handler=naive")
 class PaymentCaptureFlowTest {
 
     @Container

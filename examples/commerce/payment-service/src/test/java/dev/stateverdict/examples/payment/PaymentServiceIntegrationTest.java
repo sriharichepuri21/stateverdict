@@ -59,6 +59,14 @@ class PaymentServiceIntegrationTest {
         assertThat(response.statusCode()).isEqualTo(404);
     }
 
+    @Autowired
+    CaptureHandler captureHandler;
+
+    @Test
+    void idempotentHandlerIsTheDefault() {
+        assertThat(captureHandler).isInstanceOf(IdempotentCaptureHandler.class);
+    }
+
     @Test
     void paymentCapturesTableIsMigratedAndEmpty() {
         Integer rows = jdbc.sql("SELECT count(*) FROM payment_captures").query(Integer.class).single();
