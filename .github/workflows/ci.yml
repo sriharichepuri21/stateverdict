@@ -49,6 +49,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Build the StateVerdict CLI
+        run: mvn -B -q -pl apps/stateverdict-core -am package -DskipTests
       - name: Start the full stack
         run: docker compose -f infrastructure/compose/docker-compose.yml up --build -d --wait
       - name: Both services report healthy
@@ -66,6 +73,33 @@ jobs:
         run: scripts/checkout-smoke.sh
       - name: Controlled duplicate delivery is journaled
         run: scripts/duplicate-delivery-demo.sh
+      - name: "StateVerdict: baseline (no fault) must PASS"
+        run: |
+          java -jar apps/stateverdict-core/target/stateverdict-core-*.jar \
+            run checkout-duplicate-payment-request --copies 1 --report artifacts/baseline.json
+      - name: "StateVerdict: duplicate delivery against the naive handler must FAIL"
+        run: |
+          set +e
+          java -jar apps/stateverdict-core/target/stateverdict-core-*.jar \
+            run checkout-duplicate-payment-request --copies 2 --report artifacts/duplicate.json
+          code=$?
+          set -e
+          if [ "$code" -ne 1 ]; then echo "::error::expected FAIL (exit 1), got exit $code"; exit 1; fi
+          echo "::notice title=StateVerdict::duplicate delivery -> FAIL (SV-002 violated), as expected for the naive handler"
+      - name: "StateVerdict: replaying the saved evidence reproduces FAIL"
+        run: |
+          set +e
+          java -jar apps/stateverdict-core/target/stateverdict-core-*.jar replay-evidence artifacts/duplicate.json
+          code=$?
+          set -e
+          if [ "$code" -ne 1 ]; then echo "::error::expected replay FAIL (exit 1), got exit $code"; exit 1; fi
+      - name: Upload StateVerdict reports
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: stateverdict-reports
+          path: artifacts/
+          if-no-files-found: ignore
       - name: Service logs
         if: always()
         run: docker compose -f infrastructure/compose/docker-compose.yml logs --no-color

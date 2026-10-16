@@ -4,9 +4,9 @@ Update this file at the end of every working session (spec section 12, "Session 
 
 ## Current state
 
-- **Branch:** `feat/dispatch-scheduler`
-- **Phase:** Technical spike, step 3 of 7: controlled dispatch scheduler
-- **Last green command:** CI on PR #3: `mvn -B verify` (42 tests, 0 failures), `scripts/checkout-smoke.sh` and `scripts/duplicate-delivery-demo.sh` against the Compose stack, all green
+- **Branch:** `feat/core-verdict`
+- **Phase:** Technical spike, step 4 of 7: first verdict (core, SV-002, CLI)
+- **Last green command:** CI on PR #4: `mvn -B verify` (70 tests, 0 failures); `stateverdict run` baseline exit 0, duplicate exit 1, `replay-evidence` exit 1
 - **Last failing command:** none yet
 
 ## Spike progress
@@ -15,8 +15,8 @@ Update this file at the end of every working session (spec section 12, "Session 
 |---|------|--------|----------|
 | 1 | Repo, Compose, two services, Postgres, Kafka, health checks | Done | PR #1 merged; CI green |
 | 2 | Normal checkout flow with committed capture | Done | PR #2 merged |
-| 3 | Dispatch scheduler: hold, release, duplicate | Done (awaiting merge) | PR #3: 42 tests green, incl. 23 dispatcher unit tests; Compose demo shows one event delivered twice |
-| 4 | Vulnerable handler + capture-count rule → FAIL | Not started | |
+| 3 | Dispatch scheduler: hold, release, duplicate | Done | PR #3 merged |
+| 4 | Vulnerable handler + capture-count rule → FAIL | Done (awaiting merge) | PR #4: 70 tests green; in CI against the real stack, baseline → PASS, duplicate delivery → FAIL (SV-002), replay of saved evidence → FAIL |
 | 5 | Ten clean-state repetitions, measured reproduction | Not started | |
 | 6 | Corrected idempotent handler → PASS | Not started | |
 | 7 | CLI, report, docs, one-command reproduction | Not started | |
@@ -27,7 +27,7 @@ None.
 
 ## Next action
 
-Get PR #3 green and merged, then step 4: the StateVerdict core (rule SV-002 evaluator, evidence adapter, verdict) reporting FAIL for the duplicate-delivery run.
+Get PR #4 green and merged, then step 5: run the duplicate scenario ten times from clean state and record the real reproduction frequency, UNKNOWN and ERROR counts.
 
 ## Open questions (spec appendix B)
 

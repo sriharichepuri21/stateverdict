@@ -41,6 +41,28 @@ scripts/checkout-smoke.sh
 mvn -B verify
 ```
 
+## Running StateVerdict
+
+With the Compose stack running, build and run the CLI:
+
+```bash
+mvn -B -q -pl apps/stateverdict-core -am package -DskipTests
+CLI=apps/stateverdict-core/target/stateverdict-core-0.1.0-SNAPSHOT.jar
+
+# Baseline: no fault injected. Expected: PASS (exit 0)
+java -jar $CLI run checkout-duplicate-payment-request --copies 1
+
+# Deliver the payment request twice. Against the current (deliberately naive) payment
+# handler this is expected to FAIL rule SV-002 (exit 1): one order, two captures.
+java -jar $CLI run checkout-duplicate-payment-request --copies 2 --report artifacts/duplicate.json
+
+# Re-evaluate the saved evidence without touching any service. Same verdict.
+java -jar $CLI replay-evidence artifacts/duplicate.json
+```
+
+Exit codes: `0` PASS, `1` FAIL, `2` INCONCLUSIVE, `3` ERROR. See
+[ADR-004](docs/decisions/ADR-004-execution-and-rule-truth-are-separate.md) for how verdicts are derived.
+
 ## Guiding principle
 
 Never report a verified business outcome without sufficient, trustworthy evidence.
