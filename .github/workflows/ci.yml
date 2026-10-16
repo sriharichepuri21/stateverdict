@@ -1,0 +1,70 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and test (Testcontainers)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Build and run all tests
+        run: mvn -B verify
+      - name: Report test counts (and fail if no tests ran)
+        if: always()
+        run: |
+          shopt -s globstar nullglob
+          reports=(**/target/surefire-reports/TEST-*.xml)
+          tests=0; failures=0; errors=0; skipped=0
+          for f in "${reports[@]}"; do
+            line=$(grep -m1 -o '<testsuite[^>]*>' "$f")
+            get() { echo "$line" | grep -o " $1=\"[0-9]*\"" | grep -o '[0-9]*'; }
+            tests=$((tests + $(get tests))); failures=$((failures + $(get failures)))
+            errors=$((errors + $(get errors))); skipped=$((skipped + $(get skipped)))
+          done
+          summary="${tests} tests, ${failures} failures, ${errors} errors, ${skipped} skipped (${#reports[@]} test classes)"
+          echo "::notice title=Test results::${summary}"
+          echo "### Test results: ${summary}" >> "$GITHUB_STEP_SUMMARY"
+          [ "$tests" -gt 0 ] || { echo "::error::No tests ran"; exit 1; }
+
+  compose-smoke:
+    name: Docker Compose smoke test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - name: Start the full stack
+        run: docker compose -f infrastructure/compose/docker-compose.yml up --build -d --wait
+      - name: Both services report healthy
+        run: |
+          for port in 8081 8082; do
+            for attempt in $(seq 1 30); do
+              if curl -fsS "http://localhost:${port}/actuator/health" | grep -q '"status":"UP"'; then
+                echo "service on ${port} is UP"; continue 2
+              fi
+              sleep 2
+            done
+            echo "service on ${port} never became healthy"; exit 1
+          done
+      - name: Service logs
+        if: always()
+        run: docker compose -f infrastructure/compose/docker-compose.yml logs --no-color
+      - name: Stop the stack
+        if: always()
+        run: docker compose -f infrastructure/compose/docker-compose.yml down -v
