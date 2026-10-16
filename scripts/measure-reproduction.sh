@@ -4,15 +4,24 @@
 # Runs the duplicate-delivery scenario N times with the fault and N times without it
 # (baseline), each trial from clean state, and records the verdict distribution.
 #
-#   scripts/measure-reproduction.sh [TRIALS]    (default 10; needs the Compose stack running)
+#   scripts/measure-reproduction.sh [TRIALS] [HANDLER]
+#     TRIALS   trials per configuration (default 10)
+#     HANDLER  which payment handler the running stack uses: naive (default) or idempotent
 #
-# Expected against the current naive payment handler:
-#   baseline  -> PASS on every trial  (negative control: the tool must not cry wolf)
-#   duplicate -> FAIL on every trial  (the double capture reproduces)
-# The script exits non-zero if either expectation is not met on every trial.
+# Expected:
+#   baseline  -> PASS on every trial, for both handlers (negative control: no false alarms)
+#   duplicate -> FAIL on every trial with the naive handler (the double capture reproduces)
+#             -> PASS on every trial with the idempotent handler (the fix is accepted)
+# The script exits non-zero if any expectation is not met on every trial.
 set -euo pipefail
 
 TRIALS="${1:-10}"
+HANDLER="${2:-naive}"
+case "${HANDLER}" in
+  naive) EXPECT_DUPLICATE=FAIL ;;
+  idempotent) EXPECT_DUPLICATE=PASS ;;
+  *) echo "HANDLER must be naive or idempotent, got '${HANDLER}'"; exit 2 ;;
+esac
 CLI="$(ls apps/stateverdict-core/target/stateverdict-core-*.jar | grep -v original | head -1)"
 OUT="${OUT_DIR:-artifacts}"
 mkdir -p "${OUT}"
@@ -48,6 +57,6 @@ measure() {
 }
 
 status=0
-measure baseline 1 PASS || status=1
-measure duplicate 2 FAIL || status=1
+measure "baseline-${HANDLER}" 1 PASS || status=1
+measure "duplicate-${HANDLER}" 2 "${EXPECT_DUPLICATE}" || status=1
 exit "${status}"

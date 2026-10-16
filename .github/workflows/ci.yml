@@ -93,8 +93,21 @@ jobs:
           code=$?
           set -e
           if [ "$code" -ne 1 ]; then echo "::error::expected replay FAIL (exit 1), got exit $code"; exit 1; fi
-      - name: "StateVerdict: measure reproduction over 10 clean-state trials each"
-        run: scripts/measure-reproduction.sh 10
+      - name: "StateVerdict: naive handler, 10 clean-state trials each (duplicate must FAIL)"
+        run: scripts/measure-reproduction.sh 10 naive
+      - name: Switch the payment service to the idempotent handler
+        run: |
+          PAYMENT_CAPTURE_HANDLER=idempotent \
+            docker compose -f infrastructure/compose/docker-compose.yml up -d --wait payment-service
+          docker compose -f infrastructure/compose/docker-compose.yml exec -T payment-service \
+            printenv PAYMENT_CAPTURE_HANDLER | grep -qx idempotent
+      - name: "StateVerdict: idempotent handler, 10 clean-state trials each (duplicate must PASS)"
+        run: scripts/measure-reproduction.sh 10 idempotent
+      - name: "Idempotent handler: duplicate delivery demo shows 2 deliveries, 1 capture"
+        run: |
+          output=$(scripts/duplicate-delivery-demo.sh)
+          echo "$output"
+          grep -q "1 capture (the handler is idempotent)" <<< "$output"
       - name: Upload StateVerdict reports
         if: always()
         uses: actions/upload-artifact@v5
