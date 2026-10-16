@@ -6,14 +6,14 @@ Update this file at the end of every working session (spec section 12, "Session 
 
 - **Branch:** `feat/bootstrap`
 - **Phase:** Technical spike, step 1 of 7: bootstrap
-- **Last green command:** pending first CI run
+- **Last green command:** CI on PR #1: `mvn -B verify` (5 tests, 0 failures) and Compose smoke test, both green
 - **Last failing command:** none yet
 
 ## Spike progress
 
 | # | Step | Status | Evidence |
 |---|------|--------|----------|
-| 1 | Repo, Compose, two services, Postgres, Kafka, health checks | In progress | CI run on PR `feat/bootstrap` |
+| 1 | Repo, Compose, two services, Postgres, Kafka, health checks | Done (awaiting merge) | PR #1, CI green: 5 tests + Compose smoke test |
 | 2 | Normal checkout flow with committed capture | Not started | |
 | 3 | Dispatch scheduler: hold, release, duplicate | Not started | |
 | 4 | Vulnerable handler + capture-count rule → FAIL | Not started | |
@@ -27,7 +27,7 @@ None.
 
 ## Next action
 
-Get CI green on `feat/bootstrap`, then merge and start step 2 (normal checkout flow).
+Merge PR #1, then start step 2 (normal checkout flow) on `feat/checkout-flow`.
 
 ## Open questions (spec appendix B)
 
