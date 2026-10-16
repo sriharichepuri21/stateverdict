@@ -62,6 +62,8 @@ jobs:
             done
             echo "service on ${port} never became healthy"; exit 1
           done
+      - name: One order produces exactly one committed capture
+        run: scripts/checkout-smoke.sh
       - name: Service logs
         if: always()
         run: docker compose -f infrastructure/compose/docker-compose.yml logs --no-color
