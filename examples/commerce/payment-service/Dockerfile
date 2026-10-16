@@ -3,8 +3,10 @@
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /src
 COPY pom.xml .
+COPY libs/stateverdict-dispatch/pom.xml libs/stateverdict-dispatch/pom.xml
 COPY examples/commerce/order-service/pom.xml examples/commerce/order-service/pom.xml
 COPY examples/commerce/payment-service/pom.xml examples/commerce/payment-service/pom.xml
+COPY libs/stateverdict-dispatch/src libs/stateverdict-dispatch/src
 COPY examples/commerce/payment-service/src examples/commerce/payment-service/src
 RUN --mount=type=cache,target=/root/.m2 \
     mvn -B -q -pl examples/commerce/payment-service -am package -DskipTests
