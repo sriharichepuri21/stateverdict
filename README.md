@@ -34,6 +34,9 @@ docker compose -f infrastructure/compose/docker-compose.yml up --build -d
 curl -s localhost:8081/actuator/health   # order-service
 curl -s localhost:8082/actuator/health   # payment-service
 
+# Place one order and check exactly one payment capture is committed
+scripts/checkout-smoke.sh
+
 # Run all tests (uses Testcontainers, so Docker must be running)
 mvn -B verify
 ```
