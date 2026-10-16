@@ -59,16 +59,7 @@ jobs:
       - name: Start the full stack
         run: docker compose -f infrastructure/compose/docker-compose.yml up --build -d --wait
       - name: Both services report healthy
-        run: |
-          for port in 8081 8082; do
-            for attempt in $(seq 1 30); do
-              if curl -fsS "http://localhost:${port}/actuator/health" | grep -q '"status":"UP"'; then
-                echo "service on ${port} is UP"; continue 2
-              fi
-              sleep 2
-            done
-            echo "service on ${port} never became healthy"; exit 1
-          done
+        run: scripts/wait-healthy.sh 8081 8082
       - name: One order produces exactly one committed capture
         run: scripts/checkout-smoke.sh
       - name: Controlled duplicate delivery is journaled
@@ -101,6 +92,7 @@ jobs:
             docker compose -f infrastructure/compose/docker-compose.yml up -d --wait payment-service
           docker compose -f infrastructure/compose/docker-compose.yml exec -T payment-service \
             printenv PAYMENT_CAPTURE_HANDLER | grep -qx idempotent
+          scripts/wait-healthy.sh 8082
       - name: "StateVerdict: idempotent handler, 10 clean-state trials each (duplicate must PASS)"
         run: scripts/measure-reproduction.sh 10 idempotent
       - name: "Idempotent handler: duplicate delivery demo shows 2 deliveries, 1 capture"
