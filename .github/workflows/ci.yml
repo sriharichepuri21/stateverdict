@@ -64,6 +64,8 @@ jobs:
           done
       - name: One order produces exactly one committed capture
         run: scripts/checkout-smoke.sh
+      - name: Controlled duplicate delivery is journaled
+        run: scripts/duplicate-delivery-demo.sh
       - name: Service logs
         if: always()
         run: docker compose -f infrastructure/compose/docker-compose.yml logs --no-color
