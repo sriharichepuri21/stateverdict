@@ -2,6 +2,7 @@ package dev.stateverdict.examples.order;
 
 import java.net.URI;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -25,6 +27,11 @@ public class OrderController {
     record CreateOrderRequest(long amountCents) {
     }
 
+    /** Optional HTTP header; its value is propagated to published events. */
+    static final String CORRELATION_ID_HEADER = "X-Correlation-Id";
+    /** Letters, digits and {@code . _ : -} only, so the value is safe in logs and headers. */
+    private static final Pattern CORRELATION_ID = Pattern.compile("[A-Za-z0-9._:-]{1,128}");
+
     private final CheckoutService checkout;
     private final OrderRepository orders;
 
@@ -34,8 +41,14 @@ public class OrderController {
     }
 
     @PostMapping
-    public ResponseEntity<Order> create(@RequestBody CreateOrderRequest request) {
-        Order order = checkout.checkout(request.amountCents());
+    public ResponseEntity<Order> create(
+            @RequestBody CreateOrderRequest request,
+            @RequestHeader(name = CORRELATION_ID_HEADER, required = false) String correlationId) {
+        if (correlationId != null && !CORRELATION_ID.matcher(correlationId).matches()) {
+            throw new IllegalArgumentException(
+                    CORRELATION_ID_HEADER + " must be 1-128 characters of letters, digits, '.', '_', ':' or '-'");
+        }
+        Order order = checkout.checkout(request.amountCents(), correlationId);
         return ResponseEntity.created(URI.create("/orders/" + order.id())).body(order);
     }
 

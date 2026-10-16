@@ -6,6 +6,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +15,7 @@ import java.util.UUID;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,6 +69,33 @@ class CheckoutFlowTest {
     }
 
     @Test
+    void correlationIdIsPropagatedToTheEventHeader() throws Exception {
+        HttpResponse<String> created = post("/orders", "{\"amountCents\": 500}", "run-42");
+        Order order = json.readValue(created.body(), Order.class);
+
+        List<ConsumerRecord<String, String>> records = recordsFor(order.id());
+
+        assertThat(records).singleElement().satisfies(record -> {
+            Header header = record.headers().lastHeader(CheckoutService.CORRELATION_HEADER);
+            assertThat(header).isNotNull();
+            assertThat(new String(header.value(), StandardCharsets.UTF_8)).isEqualTo("run-42");
+        });
+    }
+
+    @Test
+    void eventHasNoCorrelationHeaderWhenTheRequestHasNone() throws Exception {
+        Order order = json.readValue(post("/orders", "{\"amountCents\": 500}").body(), Order.class);
+
+        assertThat(recordsFor(order.id())).singleElement()
+                .satisfies(record -> assertThat(record.headers().lastHeader(CheckoutService.CORRELATION_HEADER)).isNull());
+    }
+
+    @Test
+    void unsafeCorrelationIdIsRejected() throws Exception {
+        assertThat(post("/orders", "{\"amountCents\": 500}", "bad id with spaces;").statusCode()).isEqualTo(400);
+    }
+
+    @Test
     void nonPositiveAmountIsRejected() throws Exception {
         assertThat(post("/orders", "{\"amountCents\": 0}").statusCode()).isEqualTo(400);
     }
@@ -78,40 +107,51 @@ class CheckoutFlowTest {
 
     /** Reads the whole topic and returns the events for one order. */
     private List<PaymentRequested> paymentRequestsFor(UUID orderId) {
+        return recordsFor(orderId).stream()
+                .map(record -> json.readValue(record.value(), PaymentRequested.class))
+                .toList();
+    }
+
+    /** Reads the whole topic and returns the raw records for one order, waiting up to 15 seconds. */
+    private List<ConsumerRecord<String, String>> recordsFor(UUID orderId) {
         Map<String, Object> config = Map.of(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
                 ConsumerConfig.GROUP_ID_CONFIG, "test-" + UUID.randomUUID(),
                 ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        List<PaymentRequested> found = new ArrayList<>();
+        List<ConsumerRecord<String, String>> found = new ArrayList<>();
         try (var consumer = new KafkaConsumer<>(config, new StringDeserializer(), new StringDeserializer())) {
             consumer.subscribe(List.of(KafkaTopicsConfig.PAYMENT_REQUESTED));
             long deadline = System.nanoTime() + Duration.ofSeconds(15).toNanos();
             while (found.isEmpty() && System.nanoTime() < deadline) {
-                for (ConsumerRecord<String, String> record : consumer.poll(Duration.ofMillis(500))) {
-                    PaymentRequested event = json.readValue(record.value(), PaymentRequested.class);
-                    if (event.orderId().equals(orderId)) {
-                        assertThat(record.key()).isEqualTo(orderId.toString());
-                        found.add(event);
-                    }
-                }
+                collect(consumer.poll(Duration.ofMillis(500)), orderId, found);
             }
             // Keep reading briefly to make sure no second event follows.
-            for (ConsumerRecord<String, String> record : consumer.poll(Duration.ofSeconds(1))) {
-                PaymentRequested event = json.readValue(record.value(), PaymentRequested.class);
-                if (event.orderId().equals(orderId)) {
-                    found.add(event);
-                }
-            }
+            collect(consumer.poll(Duration.ofSeconds(1)), orderId, found);
         }
         return found;
     }
 
+    private static void collect(Iterable<ConsumerRecord<String, String>> records, UUID orderId,
+                                List<ConsumerRecord<String, String>> into) {
+        for (ConsumerRecord<String, String> record : records) {
+            if (orderId.toString().equals(record.key())) {
+                into.add(record);
+            }
+        }
+    }
+
     private HttpResponse<String> post(String path, String body) throws Exception {
-        return http.send(HttpRequest.newBuilder(uri(path))
-                        .header("Content-Type", "application/json")
-                        .POST(HttpRequest.BodyPublishers.ofString(body))
-                        .build(),
-                HttpResponse.BodyHandlers.ofString());
+        return post(path, body, null);
+    }
+
+    private HttpResponse<String> post(String path, String body, String correlationId) throws Exception {
+        HttpRequest.Builder request = HttpRequest.newBuilder(uri(path))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body));
+        if (correlationId != null) {
+            request.header("X-Correlation-Id", correlationId);
+        }
+        return http.send(request.build(), HttpResponse.BodyHandlers.ofString());
     }
 
     private HttpResponse<String> get(String path) throws Exception {
