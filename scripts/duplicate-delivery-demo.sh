@@ -15,7 +15,7 @@ CONTROL="${PAYMENT_URL}/_stateverdict/dispatch/runs/${RUN_ID}"
 
 echo "run ${RUN_ID}: arming DUPLICATE x2 on payment.requested"
 curl -fsS -X POST "${CONTROL}/interventions" \
-  -H 'Content-Type: application/json' -d '{"type": "DUPLICATE", "copies": 2}'
+  -H 'Content-Type: application/json' -d '{"type": "DUPLICATE", "topic": "payment.requested", "copies": 2}'
 
 order_id=$(curl -fsS -X POST "${ORDER_URL}/orders" \
   -H 'Content-Type: application/json' -H "X-Correlation-Id: ${RUN_ID}" \

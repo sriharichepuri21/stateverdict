@@ -12,15 +12,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import org.apache.kafka.clients.admin.NewTopic;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -41,13 +37,6 @@ class IdempotentCaptureFlowTest {
     @ServiceConnection
     static KafkaContainer kafka = new KafkaContainer("apache/kafka:4.1.0");
 
-    @TestConfiguration
-    static class Topics {
-        @Bean
-        NewTopic paymentRequested() {
-            return TopicBuilder.name("payment.requested").partitions(1).replicas(1).build();
-        }
-    }
 
     @Autowired
     KafkaTemplate<String, String> kafkaTemplate;
@@ -92,7 +81,7 @@ class IdempotentCaptureFlowTest {
             for (int i = 0; i < copies; i++) {
                 results.add(pool.submit(() -> {
                     start.await();
-                    handler.capture(event);
+                    handler.capture(event, null);
                     return null;
                 }));
             }
@@ -114,8 +103,8 @@ class IdempotentCaptureFlowTest {
         // Two captures for one order here would still be reported by rule SV-002.
         UUID orderId = UUID.randomUUID();
 
-        handler.capture(newEvent(orderId));
-        handler.capture(newEvent(orderId));
+        handler.capture(newEvent(orderId), null);
+        handler.capture(newEvent(orderId), null);
 
         assertThat(captures.findByOrderId(orderId)).hasSize(2);
     }

@@ -4,9 +4,9 @@ Update this file at the end of every working session (spec section 12, "Session 
 
 ## Current state
 
-- **Branch:** `feat/one-command-demo`
-- **Phase:** Technical spike, spike complete (step 7 of 7: one-command reproduction, README, retrospective)
-- **Last green command:** CI run 38946710200 on PR #6: 81 tests, 0 failures; naive: baseline PASS 10/10, duplicate FAIL 10/10; idempotent: baseline PASS 10/10, duplicate PASS 10/10
+- **Branch:** `feat/second-event-flow`
+- **Phase:** Exploration phase, PR 1 of 4: second event flow (payment.completed, cancellation)
+- **Last green command:** CI run 38989299928 on PR #9: 90 tests, 0 failures; demo OK; reproduction unchanged (naive duplicate FAIL 10/10, all others PASS 10/10)
 - **Last failing command:** CI run 38946344615: idempotent trials ERROR 10/10 because trials started before the restarted service was ready; fixed with `scripts/wait-healthy.sh`
 
 ## Spike progress
@@ -19,7 +19,16 @@ Update this file at the end of every working session (spec section 12, "Session 
 | 4 | Vulnerable handler + capture-count rule → FAIL | Done | PR #4 merged |
 | 5 | Ten clean-state repetitions, measured reproduction | Done | PR #5 merged |
 | 6 | Corrected idempotent handler → PASS | Done | PR #6 + #7 merged (landed on main via #7) |
-| 7 | CLI, report, docs, one-command reproduction | Done (awaiting merge) | PR #8: `scripts/demo.sh` passes all 4 steps in CI with Docker only; README; retrospective |
+| 7 | CLI, report, docs, one-command reproduction | Done | PR #8 merged |
+
+## Exploration phase (gates 2 and 3)
+
+| # | PR | Status | Evidence |
+|---|----|--------|----------|
+| 1 | Second event flow: `payment.completed`, customer cancellation, naive/guarded completion handlers | Done (awaiting merge) | PR #9: 90 tests; naive handler confirms a cancelled order under the race (pinned by test) |
+| 2 | Schedules: multi-step runs across both services, rule SV-003 | Not started | |
+| 3 | Explorer: seeded generation of valid schedules (gate 2) | Not started | |
+| 4 | Shrinker: dependency-aware reduction confirmed by repeated trials (gate 3) | Not started | |
 
 ## Active blocker
 
@@ -27,7 +36,7 @@ None.
 
 ## Next action
 
-Merge PR #8. Spike done. Next (see docs/results/spike-retrospective.md): mutation corpus + JUnit baseline (Gate 4), generated fault schedules (Gate 2), dependency-aware shrinking (Gate 3).
+Merge PR #9, then PR 2: schedule runner that drives both services' dispatchers, resets both per run, and rule SV-003 (a customer-cancelled order never ends CONFIRMED).
 
 ## Open questions (spec appendix B)
 

@@ -1,4 +1,4 @@
-package dev.stateverdict.examples.payment;
+package dev.stateverdict.dispatch.spring;
 
 import dev.stateverdict.dispatch.ControlledDispatcher;
 import dev.stateverdict.dispatch.HeldMessage;
@@ -8,7 +8,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.regex.Pattern;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -20,17 +19,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Test-only HTTP API through which StateVerdict controls deliveries. Exists only when
- * {@code stateverdict.dispatch.mode=controlled}; in production mode these routes return 404.
+ * Test-only HTTP API through which StateVerdict controls deliveries. Registered only when
+ * {@code stateverdict.dispatch.mode=controlled} (see {@link DispatchAutoConfiguration}); in direct
+ * mode these routes return 404.
  */
 @RestController
 @RequestMapping("/_stateverdict/dispatch/runs/{runId}")
-@ConditionalOnProperty(name = DispatchConfig.MODE_PROPERTY, havingValue = "controlled")
 public class DispatchControlController {
 
     /**
      * @param type     {@code HOLD}, {@code DUPLICATE} or {@code DELAY}
-     * @param topic    defaults to {@code payment.requested}
+     * @param topic    the topic the intervention applies to (required)
      * @param copies   for {@code DUPLICATE}
      * @param delayMs  for {@code DELAY}
      */
@@ -52,8 +51,10 @@ public class DispatchControlController {
     @PostMapping("/interventions")
     public ResponseEntity<Void> schedule(@PathVariable String runId, @RequestBody InterventionRequest request) {
         requireValid(runId);
-        String topic = request.topic() == null ? PaymentRequestedListener.TOPIC : request.topic();
-        dispatcher.schedule(runId, topic, toIntervention(request));
+        if (request.topic() == null || request.topic().isBlank()) {
+            throw new IllegalArgumentException("topic is required");
+        }
+        dispatcher.schedule(runId, request.topic(), toIntervention(request));
         return ResponseEntity.accepted().build();
     }
 

@@ -5,6 +5,7 @@ FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /src
 COPY pom.xml .
 COPY libs/stateverdict-dispatch/pom.xml libs/stateverdict-dispatch/pom.xml
+COPY libs/stateverdict-dispatch-spring/pom.xml libs/stateverdict-dispatch-spring/pom.xml
 COPY apps/stateverdict-core/pom.xml apps/stateverdict-core/pom.xml
 COPY examples/commerce/order-service/pom.xml examples/commerce/order-service/pom.xml
 COPY examples/commerce/payment-service/pom.xml examples/commerce/payment-service/pom.xml

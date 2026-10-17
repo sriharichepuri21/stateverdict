@@ -13,16 +13,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.context.annotation.Bean;
-import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -50,13 +46,6 @@ class ControlledDispatchFlowTest {
     @ServiceConnection
     static KafkaContainer kafka = new KafkaContainer("apache/kafka:4.1.0");
 
-    @TestConfiguration
-    static class Topics {
-        @Bean
-        NewTopic paymentRequested() {
-            return TopicBuilder.name("payment.requested").partitions(1).replicas(1).build();
-        }
-    }
 
     @Value("${local.server.port}")
     int port;
@@ -88,7 +77,7 @@ class ControlledDispatchFlowTest {
         String runId = newRunId();
         PaymentRequested event = newEvent();
         assertThat(post("/_stateverdict/dispatch/runs/" + runId + "/interventions",
-                "{\"type\": \"DUPLICATE\", \"copies\": 2}").statusCode()).isEqualTo(202);
+                "{\"type\": \"DUPLICATE\", \"topic\": \"payment.requested\", \"copies\": 2}").statusCode()).isEqualTo(202);
 
         publish(event, runId);
 
@@ -105,7 +94,7 @@ class ControlledDispatchFlowTest {
     void holdParksTheEventUntilReleased() throws Exception {
         String runId = newRunId();
         PaymentRequested event = newEvent();
-        post("/_stateverdict/dispatch/runs/" + runId + "/interventions", "{\"type\": \"HOLD\"}");
+        post("/_stateverdict/dispatch/runs/" + runId + "/interventions", "{\"type\": \"HOLD\", \"topic\": \"payment.requested\"}");
 
         publish(event, runId);
 
@@ -124,7 +113,7 @@ class ControlledDispatchFlowTest {
     void resetDiscardsHeldEventsWithoutDelivering() throws Exception {
         String runId = newRunId();
         PaymentRequested event = newEvent();
-        post("/_stateverdict/dispatch/runs/" + runId + "/interventions", "{\"type\": \"HOLD\"}");
+        post("/_stateverdict/dispatch/runs/" + runId + "/interventions", "{\"type\": \"HOLD\", \"topic\": \"payment.requested\"}");
         publish(event, runId);
         await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> assertThat(journal(runId)).hasSize(1));
 
@@ -138,9 +127,11 @@ class ControlledDispatchFlowTest {
 
     @Test
     void invalidInterventionIsRejected() throws Exception {
-        assertThat(post("/_stateverdict/dispatch/runs/r/interventions", "{\"type\": \"DUPLICATE\", \"copies\": 1}")
+        assertThat(post("/_stateverdict/dispatch/runs/r/interventions", "{\"type\": \"DUPLICATE\", \"topic\": \"payment.requested\", \"copies\": 1}")
                 .statusCode()).isEqualTo(400);
-        assertThat(post("/_stateverdict/dispatch/runs/r/interventions", "{\"type\": \"EXPLODE\"}")
+        assertThat(post("/_stateverdict/dispatch/runs/r/interventions", "{\"type\": \"EXPLODE\", \"topic\": \"t\"}")
+                .statusCode()).isEqualTo(400);
+        assertThat(post("/_stateverdict/dispatch/runs/r/interventions", "{\"type\": \"HOLD\"}")
                 .statusCode()).isEqualTo(400);
     }
 

@@ -6,14 +6,10 @@ import static org.awaitility.Awaitility.await;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
-import org.apache.kafka.clients.admin.NewTopic;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.context.annotation.Bean;
-import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -39,14 +35,6 @@ class PaymentCaptureFlowTest {
     @ServiceConnection
     static KafkaContainer kafka = new KafkaContainer("apache/kafka:4.1.0");
 
-    /** In the real stack the order service owns this topic; in this isolated test we create it. */
-    @TestConfiguration
-    static class Topics {
-        @Bean
-        NewTopic paymentRequested() {
-            return TopicBuilder.name("payment.requested").partitions(1).replicas(1).build();
-        }
-    }
 
     @Autowired
     KafkaTemplate<String, String> kafkaTemplate;

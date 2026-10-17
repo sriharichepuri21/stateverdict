@@ -55,6 +55,11 @@ services:
     environment:
       ORDER_DB_URL: jdbc:postgresql://postgres:5432/orders
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Test environment: StateVerdict may control deliveries of payment.completed too.
+      STATEVERDICT_DISPATCH_MODE: controlled
+      # The demo stack starts with the deliberately naive completion handler.
+      # Run with ORDER_COMPLETION_HANDLER=guarded to get the fixed one.
+      ORDER_COMPLETION_HANDLER: ${ORDER_COMPLETION_HANDLER:-naive}
     ports:
       - "8081:8081"
     depends_on:
