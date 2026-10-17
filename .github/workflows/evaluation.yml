@@ -1,0 +1,88 @@
+name: evaluation
+
+# Head-to-head on the defect corpus (docs/evaluation/corpus.md): for every configuration, run the
+# conventional JUnit/Testcontainers suite and StateVerdict, then tabulate who detected what.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "apps/**"
+      - "examples/**"
+      - "libs/**"
+      - "scenarios/**"
+      - "scripts/evaluate-config.sh"
+      - ".github/workflows/evaluation.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evaluation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    name: "Evaluate ${{ matrix.config }}"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [baseline, M01, M02, M03, M04, M05, M06, C01, C02, C03]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Run both approaches against ${{ matrix.config }}
+        run: scripts/evaluate-config.sh ${{ matrix.config }}
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: eval-${{ matrix.config }}
+          path: artifacts/eval/
+          if-no-files-found: ignore
+
+  summarise:
+    name: Summarise the head-to-head
+    needs: evaluate
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: eval-*
+          path: eval
+          merge-multiple: true
+      - name: Build the results table
+        run: |
+          # Each job uploads its whole folder (explore reports too); keep only the per-config results.
+          jq -s 'map(select(type == "object" and has("config") and has("junit")))
+                 | sort_by(.config | if . == "baseline" then "0" else . end)' eval/*.json > results.json
+          echo "configurations: $(jq 'length' results.json)"
+          [ "$(jq 'length' results.json)" -eq 10 ] || { echo "::error::expected 10 configuration results"; exit 1; }
+          jq -r '
+            def mark(kind; detected):
+              if kind == "defect" then (if detected then "caught" else "MISSED" end)
+              else (if detected then "FALSE ALARM" else "quiet" end) end;
+            "| Config | Kind | Conventional suite | StateVerdict |",
+            "|---|---|---|---|",
+            (.[] | "| \(.config) | \(.kind) | \(mark(.kind; .junit.detected)): \(.junit.failed)/\(.junit.testsRun) tests failed | \(mark(.kind; .stateverdict.detected)): \(if (.stateverdict.rulesViolated | length) > 0 then (.stateverdict.rulesViolated | join(", ")) else "no rule violated" end)\(if .stateverdict.inconclusive > 0 then ", \(.stateverdict.inconclusive) inconclusive" else "" end) |")
+          ' results.json > table.md
+          cat table.md
+          { echo "## Defect corpus: conventional suite vs StateVerdict"; echo; cat table.md; echo;
+            echo "Failing conventional tests per configuration:"; echo '```';
+            jq -r '.[] | "\(.config): \(.junit.failingTests | join(", "))"' results.json; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          table=$(python3 -c 'import sys; print(sys.stdin.read().replace("%","%25").replace("\n","%0A"))' < table.md)
+          echo "::notice title=Head-to-head results::${table}"
+          tests=$(jq -r '.[] | "\(.config): \(.junit.failingTests | join(", "))"' results.json \
+            | python3 -c 'import sys; print(sys.stdin.read().replace("%","%25").replace("\n","%0A"))')
+          echo "::notice title=Failing conventional tests::${tests}"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: evaluation-results
+          path: |
+            results.json
+            table.md

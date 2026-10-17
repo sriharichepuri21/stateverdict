@@ -60,6 +60,8 @@ services:
       # The demo stack starts with the deliberately naive completion handler.
       # Run with ORDER_COMPLETION_HANDLER=guarded to get the fixed one.
       ORDER_COMPLETION_HANDLER: ${ORDER_COMPLETION_HANDLER:-naive}
+      # Evaluation only: defect-corpus variant (docs/evaluation/corpus.md). Empty = none.
+      EVALUATION_MUTATION: ${EVALUATION_MUTATION:-}
     ports:
       - "8081:8081"
     depends_on:
@@ -80,6 +82,8 @@ services:
       # The demo stack starts with the deliberately naive handler so the defect is visible.
       # Run with PAYMENT_CAPTURE_HANDLER=idempotent to get the fixed handler.
       PAYMENT_CAPTURE_HANDLER: ${PAYMENT_CAPTURE_HANDLER:-naive}
+      # Evaluation only: defect-corpus variant (docs/evaluation/corpus.md). Empty = none.
+      EVALUATION_MUTATION: ${EVALUATION_MUTATION:-}
     ports:
       - "8082:8082"
     depends_on:
