@@ -17,7 +17,7 @@
     <dependencies>
         <dependency>
             <groupId>dev.stateverdict</groupId>
-            <artifactId>stateverdict-dispatch</artifactId>
+            <artifactId>stateverdict-dispatch-spring</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
