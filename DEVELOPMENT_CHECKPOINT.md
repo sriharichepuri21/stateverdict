@@ -4,9 +4,9 @@ Update this file at the end of every working session (spec section 12, "Session 
 
 ## Current state
 
-- **Branch:** `feat/second-event-flow`
-- **Phase:** Exploration phase, PR 1 of 4: second event flow (payment.completed, cancellation)
-- **Last green command:** CI run 38989299928 on PR #9: 90 tests, 0 failures; demo OK; reproduction unchanged (naive duplicate FAIL 10/10, all others PASS 10/10)
+- **Branch:** `feat/schedules`
+- **Phase:** Exploration phase, PR 2 of 4: schedules and SV-003
+- **Last green command:** CI run 38990570147 on PR #10: 113 tests; cancel race naive FAIL 10/10 (SV-003), fixed PASS 10/10; all baselines PASS 10/10
 - **Last failing command:** CI run 38946344615: idempotent trials ERROR 10/10 because trials started before the restarted service was ready; fixed with `scripts/wait-healthy.sh`
 
 ## Spike progress
@@ -25,8 +25,8 @@ Update this file at the end of every working session (spec section 12, "Session 
 
 | # | PR | Status | Evidence |
 |---|----|--------|----------|
-| 1 | Second event flow: `payment.completed`, customer cancellation, naive/guarded completion handlers | Done (awaiting merge) | PR #9: 90 tests; naive handler confirms a cancelled order under the race (pinned by test) |
-| 2 | Schedules: multi-step runs across both services, rule SV-003 | Not started | |
+| 1 | Second event flow: `payment.completed`, customer cancellation, naive/guarded completion handlers | Done | PR #9 merged |
+| 2 | Schedules: multi-step runs across both services, rule SV-003 | Done (awaiting merge) | PR #10: cancel race FAIL 10/10 naive, PASS 10/10 fixed |
 | 3 | Explorer: seeded generation of valid schedules (gate 2) | Not started | |
 | 4 | Shrinker: dependency-aware reduction confirmed by repeated trials (gate 3) | Not started | |
 
@@ -36,7 +36,7 @@ None.
 
 ## Next action
 
-Merge PR #9, then PR 2: schedule runner that drives both services' dispatchers, resets both per run, and rule SV-003 (a customer-cancelled order never ends CONFIRMED).
+Merge PR #10, then PR 3: explorer that generates valid schedules from a seed and searches for a violation (gate 2).
 
 ## Open questions (spec appendix B)
 
@@ -46,5 +46,5 @@ Merge PR #9, then PR 2: schedule runner that drives both services' dispatchers, 
   one consumer per group; duplicates are delivered sequentially by the dispatcher.
 - [x] Source of committed payment captures: **Decision:** payment-service `GET /captures?orderId=` backed by the `payment_captures` table. Reset boundary still open.
 - [ ] Clock model for bounded temporal assertions.
-- [ ] Definition of a valid, shrinkable schedule dependency graph.
+- [x] Definition of a valid schedule: **Decision:** `Schedule.problems()` (one order, arms before it, waits only for armed holds, every hold released). The explorer generates within it; the shrinker must preserve it.
 - [ ] Which open-source target, if any, to use for external validation.

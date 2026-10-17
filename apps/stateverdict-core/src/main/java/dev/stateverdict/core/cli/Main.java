@@ -3,9 +3,12 @@ package dev.stateverdict.core.cli;
 import dev.stateverdict.core.report.ReportWriter;
 import dev.stateverdict.core.report.RunReport;
 import dev.stateverdict.core.report.TrialSummary;
+import dev.stateverdict.core.rules.CancelledOrderNotConfirmedRule;
 import dev.stateverdict.core.rules.CaptureUniquenessRule;
 import dev.stateverdict.core.rules.Rule;
 import dev.stateverdict.core.runner.DuplicateDeliveryScenario;
+import dev.stateverdict.core.runner.ScheduleRunner;
+import dev.stateverdict.core.schedule.Schedule;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.URI;
@@ -24,6 +27,8 @@ import tools.jackson.databind.json.JsonMapper;
  * <pre>
  * stateverdict run checkout-duplicate-payment-request [--order-url URL] [--payment-url URL]
  *                  [--copies N] [--deadline-ms MS] [--settle-ms MS] [--trials N] [--report PATH]
+ * stateverdict run-schedule SCHEDULE.json [--order-url URL] [--payment-url URL] [--deadline-ms MS]
+ *                  [--settle-ms MS] [--trials N] [--report PATH]
  * stateverdict replay-evidence REPORT.json
  * </pre>
  *
@@ -45,6 +50,9 @@ public final class Main {
                 --settle-ms MS      extra wait before reading state (default 2000)
                 --trials N          repeat N times, each from clean state, and summarise (default 1)
                 --report PATH       write the JSON report (or trial summary) here
+              stateverdict run-schedule SCHEDULE.json [options]
+                Run a schedule of steps (see scenarios/) and evaluate SV-002 and SV-003.
+                Options: --order-url, --payment-url, --deadline-ms, --settle-ms, --trials, --report
               stateverdict replay-evidence REPORT.json
                 Re-evaluate the rules on a saved report's evidence. Contacts no service.
 
@@ -55,8 +63,12 @@ public final class Main {
     static final int MAX_TRIALS = 1000;
 
     private static final List<Rule> RULES = List.of(new CaptureUniquenessRule());
+    /** Every rule a schedule run evaluates; replay picks the ones a saved report used. */
+    private static final List<Rule> ALL_RULES = List.of(new CaptureUniquenessRule(), new CancelledOrderNotConfirmedRule());
     private static final java.util.Set<String> RUN_OPTIONS =
             java.util.Set.of("--order-url", "--payment-url", "--copies", "--deadline-ms", "--settle-ms", "--trials", "--report");
+    private static final java.util.Set<String> SCHEDULE_OPTIONS =
+            java.util.Set.of("--order-url", "--payment-url", "--deadline-ms", "--settle-ms", "--trials", "--report");
 
     public static void main(String[] args) {
         System.exit(run(args, System.out, System.err));
@@ -66,7 +78,10 @@ public final class Main {
         ReportWriter writer = new ReportWriter(JsonMapper.builder().build());
         try {
             if (args.length >= 2 && args[0].equals("run") && args[1].equals(DuplicateDeliveryScenario.NAME)) {
-                return runScenario(options(args, 2), writer, out);
+                return runScenario(options(args, 2, RUN_OPTIONS), writer, out);
+            }
+            if (args.length >= 2 && args[0].equals("run-schedule")) {
+                return runSchedule(Path.of(args[1]), options(args, 2, SCHEDULE_OPTIONS), writer, out);
             }
             if (args.length == 2 && args[0].equals("replay-evidence")) {
                 return replay(Path.of(args[1]), writer, out);
@@ -110,10 +125,56 @@ public final class Main {
             out.println("trial " + trial + "/" + trials + ": " + report.verdict() + " (" + report.runId() + ")");
             reports.add(report);
         }
-        TrialSummary summary = TrialSummary.of(DuplicateDeliveryScenario.NAME, config.copies(), reports);
+        String fault = config.copies() > 1 ? "payment.requested delivered " + config.copies() + " times" : "none (baseline)";
+        return summarise(TrialSummary.of(DuplicateDeliveryScenario.NAME, fault, reports), options.get("--report"), writer, out);
+    }
+
+    private static int runSchedule(Path schedulePath, Map<String, String> options, ReportWriter writer, PrintStream out)
+            throws IOException, InterruptedException {
+        JsonMapper json = JsonMapper.builder().build();
+        Schedule schedule;
+        try {
+            schedule = json.readValue(Files.readString(schedulePath), Schedule.class);
+        } catch (tools.jackson.core.JacksonException e) {
+            throw new IllegalArgumentException("cannot read schedule " + schedulePath + ": " + e.getMessage());
+        }
+        List<String> problems = schedule.problems();
+        if (!problems.isEmpty()) {
+            throw new IllegalArgumentException("invalid schedule " + schedulePath + ":\n  " + String.join("\n  ", problems));
+        }
+        ScheduleRunner.Config config = new ScheduleRunner.Config(
+                URI.create(options.getOrDefault("--order-url", env("STATEVERDICT_ORDER_URL", "http://localhost:8081"))),
+                URI.create(options.getOrDefault("--payment-url", env("STATEVERDICT_PAYMENT_URL", "http://localhost:8082"))),
+                Duration.ofMillis(intOption(options, "--deadline-ms", 20_000)),
+                Duration.ofMillis(intOption(options, "--settle-ms", 2_000)));
+        int trials = intOption(options, "--trials", 1);
+        if (trials < 1 || trials > MAX_TRIALS) {
+            throw new IllegalArgumentException("--trials must be between 1 and " + MAX_TRIALS);
+        }
+        ScheduleRunner runner = new ScheduleRunner(config, ALL_RULES, json);
+        out.println("Schedule: " + schedule.name());
+        for (int i = 0; i < schedule.steps().size(); i++) {
+            out.println("  " + (i + 1) + ". " + schedule.steps().get(i).describe());
+        }
+        out.println();
+        if (trials == 1) {
+            return finish(runner.run(schedule), options.get("--report"), writer, out);
+        }
+        List<RunReport> reports = new java.util.ArrayList<>();
+        for (int trial = 1; trial <= trials; trial++) {
+            RunReport report = runner.run(schedule);
+            out.println("trial " + trial + "/" + trials + ": " + report.verdict() + " (" + report.runId() + ")");
+            reports.add(report);
+        }
+        String fault = schedule.arms().isEmpty() ? "none" : schedule.arms().stream()
+                .map(dev.stateverdict.core.schedule.Step::describe).collect(java.util.stream.Collectors.joining("; "));
+        return summarise(TrialSummary.of(schedule.name(), fault, reports), options.get("--report"), writer, out);
+    }
+
+    private static int summarise(TrialSummary summary, String reportPath, ReportWriter writer, PrintStream out)
+            throws IOException {
         out.println();
         out.print(summary.toConsole());
-        String reportPath = options.get("--report");
         if (reportPath != null) {
             write(Path.of(reportPath), writer.toJson(summary));
             out.println("Report:  " + reportPath);
@@ -124,7 +185,9 @@ public final class Main {
 
     private static int replay(Path reportPath, ReportWriter writer, PrintStream out) throws IOException {
         RunReport saved = writer.fromJson(Files.readString(reportPath));
-        RunReport replayed = DuplicateDeliveryScenario.replay(saved, RULES, Clock.systemUTC());
+        java.util.Set<String> used = saved.ruleResults().stream().map(r -> r.ruleId()).collect(java.util.stream.Collectors.toSet());
+        List<Rule> rules = ALL_RULES.stream().filter(rule -> used.contains(rule.id())).toList();
+        RunReport replayed = DuplicateDeliveryScenario.replay(saved, rules, Clock.systemUTC());
         return finish(replayed, null, writer, out);
     }
 
@@ -151,14 +214,14 @@ public final class Main {
         Files.writeString(path, content);
     }
 
-    private static Map<String, String> options(String[] args, int from) {
+    private static Map<String, String> options(String[] args, int from, java.util.Set<String> allowed) {
         Map<String, String> options = new HashMap<>();
         for (int i = from; i < args.length; i += 2) {
             String name = args[i];
             if (!name.startsWith("--") || i + 1 >= args.length) {
                 throw new IllegalArgumentException("expected '--option value' but got '" + name + "'");
             }
-            if (!RUN_OPTIONS.contains(name)) {
+            if (!allowed.contains(name)) {
                 throw new IllegalArgumentException("unknown option '" + name + "'");
             }
             options.put(name, args[i + 1]);

@@ -72,6 +72,22 @@ DEMO OK: the fault is detected against the naive handler and accepted after the 
 It exits non-zero if any step gives an unexpected verdict, and CI runs it on every pull request. Use
 `KEEP=1 scripts/demo.sh` to leave the stack running afterwards.
 
+## Schedules: controlling the order of events
+
+Some bugs need events and user actions to happen in a particular order. A **schedule** is a JSON list
+of steps that StateVerdict runs across both services: arm a fault, place an order, wait until an
+event is held, cancel, release. Example: hold `payment.completed`, let the customer cancel while it
+is held, then release it. Against the naive order handler the cancelled order ends **CONFIRMED**
+(rule SV-003 fails, 10/10 trials); against the guarded handler it stays cancelled (10/10 PASS).
+
+```bash
+# with the stack running (KEEP=1 scripts/demo.sh)
+docker compose -f infrastructure/compose/docker-compose.yml --profile cli run --rm stateverdict \
+  run-schedule scenarios/cancel-while-payment-completion-held.json --trials 10
+```
+
+See [scenarios/](scenarios/README.md) for the step format and examples.
+
 ## How it works
 
 ```text
@@ -130,16 +146,17 @@ $SV replay-evidence artifacts/dup.json                       # same verdict, no 
 $SV run checkout-duplicate-payment-request --copies 2 --trials 10
 ```
 
-Developing locally with Java 21 and Maven: `mvn -B verify` runs all 81 tests, using Testcontainers
+Developing locally with Java 21 and Maven: `mvn -B verify` runs all 113 tests, using Testcontainers
 for PostgreSQL and Kafka.
 
 ## Status and limits
 
 The seven-step technical spike from the [specification](docs/specification/StateVerdict_Engineering_Specification_v1.0.pdf)
-is complete; see the [retrospective](docs/results/spike-retrospective.md). Today StateVerdict covers
-one defect class (duplicate side effects from redelivery), one rule and one scenario, with sequential
-duplicate delivery on a single-partition topology. Generated fault schedules, failure shrinking, a
-mutation corpus and temporal rules are next.
+is complete; see the [retrospective](docs/results/spike-retrospective.md). Since then: a second event
+flow with customer cancellation, schedules, and rule SV-003. StateVerdict now covers two defect
+classes (duplicate side effects, and an outcome overwriting a cancellation), with sequential delivery
+on a single-partition topology. Next: generating schedules automatically (explorer) and shrinking
+failing ones.
 
 ## Guiding principle
 

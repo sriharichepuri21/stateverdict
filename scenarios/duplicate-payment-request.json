@@ -1,0 +1,7 @@
+{
+  "name": "duplicate-payment-request",
+  "steps": [
+    { "type": "ARM", "service": "PAYMENT", "topic": "payment.requested", "fault": { "type": "DUPLICATE", "copies": 2 } },
+    { "type": "PLACE_ORDER", "amountCents": 129900 }
+  ]
+}

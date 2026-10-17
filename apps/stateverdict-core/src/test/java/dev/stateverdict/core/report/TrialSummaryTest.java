@@ -24,7 +24,7 @@ class TrialSummaryTest {
 
     @Test
     void allTrialsAgreeingGivesThatVerdict() {
-        TrialSummary summary = TrialSummary.of("s", 2, List.of(
+        TrialSummary summary = TrialSummary.of("s", "f", List.of(
                 report("a", Verdict.FAIL, ExecutionStatus.COMPLETED, 100),
                 report("b", Verdict.FAIL, ExecutionStatus.COMPLETED, 300),
                 report("c", Verdict.FAIL, ExecutionStatus.COMPLETED, 200)));
@@ -38,7 +38,7 @@ class TrialSummaryTest {
 
     @Test
     void disagreeingTrialsAreInconclusiveAndEveryOutcomeIsCounted() {
-        TrialSummary summary = TrialSummary.of("s", 2, List.of(
+        TrialSummary summary = TrialSummary.of("s", "f", List.of(
                 report("a", Verdict.FAIL, ExecutionStatus.COMPLETED, 100),
                 report("b", Verdict.PASS, ExecutionStatus.COMPLETED, 100),
                 report("c", Verdict.INCONCLUSIVE, ExecutionStatus.TIMED_OUT, 100)));
@@ -53,7 +53,7 @@ class TrialSummaryTest {
 
     @Test
     void durationsAreSummarised() {
-        TrialSummary summary = TrialSummary.of("s", 2, List.of(
+        TrialSummary summary = TrialSummary.of("s", "f", List.of(
                 report("a", Verdict.PASS, ExecutionStatus.COMPLETED, 300),
                 report("b", Verdict.PASS, ExecutionStatus.COMPLETED, 100),
                 report("c", Verdict.PASS, ExecutionStatus.COMPLETED, 200)));
@@ -65,7 +65,7 @@ class TrialSummaryTest {
 
     @Test
     void trialRowsKeepOrderAndObservedValues() {
-        TrialSummary summary = TrialSummary.of("s", 2, List.of(
+        TrialSummary summary = TrialSummary.of("s", "f", List.of(
                 report("a", Verdict.FAIL, ExecutionStatus.COMPLETED, 100),
                 report("b", Verdict.PASS, ExecutionStatus.COMPLETED, 100)));
 
@@ -77,6 +77,6 @@ class TrialSummaryTest {
 
     @Test
     void zeroTrialsIsRejected() {
-        assertThatThrownBy(() -> TrialSummary.of("s", 2, List.of())).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> TrialSummary.of("s", "f", List.of())).isInstanceOf(IllegalArgumentException.class);
     }
 }
