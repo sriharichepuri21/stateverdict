@@ -49,7 +49,8 @@ decision deadline plus the window).
   and the same verdict on replay.
 - Findings 2 and 3 need fault injection to show. Without a tool that can redeliver or delay one
   specific message on demand, they are hard to demonstrate.
-- These schedules were written by hand. Generated exploration against this target is the next step.
+- These schedules were written by hand. The section below repeats the exercise with generated
+  schedules.
 
 ## Cost of integration
 
@@ -65,3 +66,34 @@ rules, CLI command), plus tests.
   not intercepted.
 - The rules restate the behaviour described in the target's README. They are not the author's own
   invariants.
+
+## Generated exploration and shrinking (PR #18)
+
+The same generic explorer and shrinker that run against the commerce example ran here, with a schedule
+space for this target (`SagaSpace`). For each of the four messages a fault can target, the generator
+chooses nothing, a duplicate, a concurrent duplicate, a short delay (≤ 2 s) or a long one (11 to 13 s).
+For the order, it chooses affordable or not, and in stock or not. Nothing in it points at the bugs.
+
+CI run [39072498345](https://github.com/sriharichepuri21/stateverdict/actions/runs/39072498345), seed 42:
+
+- **60 generated schedules: 45 FAIL, 15 PASS, no ERROR or INCONCLUSIVE.** All three rules were
+  violated. (The previous run on the same seed gave 46/14, so one schedule's outcome depends on timing.)
+- The explorer found the rollback bug **without any fault**: an unaffordable order alone violated SAGA-2.
+
+Each kind of finding was then shrunk. A candidate was kept only if it failed 3/3, and the original and
+the result were each confirmed over 10 runs:
+
+| Finding shrunk | Original | Locally minimal | Confirmed | What the shrink shows |
+|---|---|---|---|---|
+| Order never decided (SAGA-1) | 5 interventions | **payment reserve delayed 12 s** | 10/10 | Halving the delay to 6 s passed, so it was kept at 12 s: the reply must miss the 10 s join window. The order details and the other faults played no part |
+| Money wrong after a rejection (SAGA-2) | 4 | **an unaffordable order, no fault** | 10/10 | The rollback case-mismatch bug, reduced to its trigger |
+| Stock wrong after a rejection (SAGA-3) | 3 | **an order short of stock, no fault** | 10/10 | The same bug on the stock side |
+| Money wrong, order affordable and in stock (SAGA-2) | 4 | **stock reserve delivered twice** | 10/10 | **Not predicted.** A duplicate in the *stock* service makes the *customer* pay twice: two stock ACCEPTs, joined with one payment ACCEPT, produce two CONFIRMED decisions, and payment settles both |
+
+The fourth row is the most interesting result of this target. The hand-written schedules duplicated
+the payment service's messages and predicted damage to money. The generator found that a duplicate in
+the *other* service damages money too, through the order service's join. The shrinker reduced it to that
+one cause from a schedule with four faults.
+
+Cost: the external-target CI job takes about 52 minutes, most of it spent shrinking the never-decided
+order (17 minutes), because every run of it waits out the 25 s decision deadline.

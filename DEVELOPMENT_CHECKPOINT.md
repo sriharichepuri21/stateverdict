@@ -4,9 +4,9 @@ Update this file at the end of every working session (spec section 12, "Session 
 
 ## Current state
 
-- **Branch:** `feat/external-target-piomin-saga`
+- **Branch:** `feat/explore-external-target`
 - **Phase:** External validation: piomin/sample-spring-kafka-microservices
-- **Last green command:** CI 39062748329 on PR #17: 178 tests; external target 8/8 predictions held, each 10/10
+- **Last green command:** CI 39072498345 on PR #18: 184 tests; explore-saga seed 42 FAIL 45/60; four shrinks to one cause each, 10/10
 - **Last failing command:** none on PR #16
 
 ## Spike progress
@@ -43,8 +43,8 @@ Update this file at the end of every working session (spec section 12, "Session 
 
 | # | PR | Status | Evidence |
 |---|----|--------|----------|
-| 1 | piomin saga: adapter, saga runner, SAGA-1..3, hand-written schedules | Done (awaiting merge) | PR #17: 8/8 predictions held, each 10/10 |
-| 2 | Generated exploration and shrinking against the target | Not started | |
+| 1 | piomin saga: adapter, saga runner, SAGA-1..3, hand-written schedules | Done | PR #17 merged |
+| 2 | Generic explorer and shrinker (ScheduleSpace), explored and shrunk against the target | Done (awaiting merge) | PR #18: 45/60 FAIL; 4 minimal causes, 10/10; one unpredicted |
 
 ## Active blocker
 
@@ -52,7 +52,7 @@ None.
 
 ## Next action
 
-Merge PR #17; the owner reviews and posts targets/piomin-saga/ISSUE_DRAFT.md. Then make the explorer and shrinker generic and run them against the target.
+Merge PR #18. Owner to review and post targets/piomin-saga/ISSUE_DRAFT.md when ready. Candidates next: a recruiter-facing README and demo pass; a second external target (Eventuate Tram).
 
 ## Open questions (spec appendix B)
 
