@@ -76,3 +76,22 @@ fixed (`scripts/wait-healthy.sh`); the tool's behaviour was what ADR-004 require
   wait, not by the services.
 - **The fix is judged on behaviour, not code:** nothing in StateVerdict knows which handler is
   running. The verdict flipped because the committed state changed.
+
+## Schedules: the cancel/confirm race (CI run 38990570147)
+
+Added in PR #10. `stateverdict run-schedule` drives both services step by step. The race schedule
+holds `payment.completed` in the order service, waits until it is held, has the customer cancel,
+then releases it (`scenarios/cancel-while-payment-completion-held.json`). Rule SV-003: an order
+the customer cancelled never ends CONFIRMED. 10 clean-state trials per row:
+
+| Handlers | Schedule | PASS | FAIL | INCONCLUSIVE | ERROR | Median per trial |
+|---|---|---|---|---|---|---|
+| naive | `checkout-baseline` (negative control) | **10** | 0 | 0 | 0 | 2170 ms |
+| naive | `cancel-while-payment-completion-held` | 0 | **10** | 0 | 0 | 2158 ms |
+| fixed (idempotent payment, guarded order) | `checkout-baseline` | **10** | 0 | 0 | 0 | 2165 ms |
+| fixed | `duplicate-payment-request` | **10** | 0 | 0 | 0 | 2152 ms |
+| fixed | `cancel-while-payment-completion-held` | **10** | 0 | 0 | 0 | 2176 ms |
+
+The race reproduces on every trial because `AWAIT_HELD` makes the cancel happen while the event is
+parked: the interleaving is controlled, not left to timing. This schedule was still written by
+hand; finding it automatically is the explorer's job (next PR).
