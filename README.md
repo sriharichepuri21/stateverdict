@@ -81,7 +81,9 @@ is held, then release it. Against the naive order handler the cancelled order en
 (rule SV-003 fails, 10/10 trials); against the guarded handler it stays cancelled (10/10 PASS).
 
 ```bash
-$SV run-schedule scenarios/cancel-while-payment-completion-held.json --trials 10
+# with the stack running (KEEP=1 scripts/demo.sh)
+docker compose -f infrastructure/compose/docker-compose.yml --profile cli run --rm stateverdict \
+  run-schedule scenarios/cancel-while-payment-completion-held.json --trials 10
 ```
 
 See [scenarios/](scenarios/README.md) for the step format and examples.
