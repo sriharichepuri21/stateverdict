@@ -25,7 +25,7 @@ public class NaiveCompletionHandler implements CompletionHandler {
     }
 
     @Override
-    public void apply(PaymentCompleted event) {
+    public void apply(PaymentCompleted event, String correlationId) {
         String status = CompletionHandler.targetStatus(event);
         orders.setStatus(event.orderId(), status);
         log.info("order {} set to {} from payment outcome {}", event.orderId(), status, event.outcome());

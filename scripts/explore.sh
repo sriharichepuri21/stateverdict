@@ -32,6 +32,7 @@ kinds=$(jq -r '
   def cancel_mode: (.schedule.steps | to_entries | map(select(.value.type == "CANCEL")) | first) as $c
     | if $c == null then "no cancel"
       elif ($c.key > 0 and .schedule.steps[$c.key - 1].type == "AWAIT_HELD") then "cancel while \(.schedule.steps[$c.key - 1].topic) held"
+      elif ($c.key > 0 and .schedule.steps[$c.key - 1].type == "AWAIT_ORDER_STATUS") then "cancel after order \(.schedule.steps[$c.key - 1].status)"
       else "cancel right after order" end;
   def faults: [.schedule.steps[] | select(.type == "ARM") | "\(.topic):\(.fault.type)"] | if length == 0 then "no faults" else join("+") end;
   [.findings[] | "\(.violatedRules | join(","))  \(faults)  \(cancel_mode)"]

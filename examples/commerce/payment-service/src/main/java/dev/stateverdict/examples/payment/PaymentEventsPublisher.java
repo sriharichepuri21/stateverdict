@@ -13,9 +13,9 @@ import tools.jackson.databind.json.JsonMapper;
  * Publishes {@code payment.completed}, copying the run's correlation id so StateVerdict can follow
  * the workflow into the order service.
  *
- * <p><b>Known limitation:</b> handlers call this inside their database transaction. If the publish
- * succeeds and the commit then fails, the event exists without the capture (a dual write). A
- * transactional outbox is the documented fix and is out of scope for now.
+ * <p><b>Known limitation:</b> the idempotent handler calls this after its transaction commits, so an
+ * event never announces an uncommitted capture. If the publish then fails, the capture exists without
+ * its event (a dual write). A transactional outbox is the documented fix and is out of scope for now.
  */
 @Component
 public class PaymentEventsPublisher {

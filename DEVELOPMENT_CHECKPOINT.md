@@ -4,10 +4,10 @@ Update this file at the end of every working session (spec section 12, "Session 
 
 ## Current state
 
-- **Branch:** `feat/evaluation`
-- **Phase:** Gate 4: head-to-head with the conventional suite
-- **Last green command:** evaluation run 39012932752: conventional suite 6/6 defects, 1/3 false alarms; StateVerdict 4/6 defects, 0/3 false alarms; all 9 predictions held
-- **Last failing command:** evaluation runs 39011191806 and 39012056118: mutations not passed into containers, Maven stopping early, SIGPIPE in a log check; all fixed
+- **Branch:** `feat/refunds`
+- **Phase:** Closing evaluation gaps: refunds and SV-004 (M04)
+- **Last green command:** CI 39048156582 + evaluation 39048156513 on PR #15: 159 tests; fixed explore PASS 60; StateVerdict 5/6 defects, 0/3 false alarms
+- **Last failing command:** PR #15 first run: a test stub short-circuited its lookup counter, and the shrink selection silently matched nothing; both fixed
 
 ## Spike progress
 
@@ -35,7 +35,9 @@ Update this file at the end of every working session (spec section 12, "Session 
 | # | PR | Status | Evidence |
 |---|----|--------|----------|
 | 1 | Defect corpus (M01–M06, C01–C03) and SV-001 | Done | PR #13 merged |
-| 2 | Head-to-head in CI | Done (awaiting merge) | PR #14: `docs/evaluation/results.md` |
+| 2 | Head-to-head in CI | Done | PR #14 merged |
+| 3 | Refund flow, SV-004, cancel-after-confirmed (closes M04) | Done (awaiting merge) | PR #15: 5/6 defects, 0/3 false alarms |
+| 4 | Concurrent delivery (closes M03) | Not started | |
 
 ## Active blocker
 
@@ -43,7 +45,7 @@ None.
 
 ## Next action
 
-Merge PR #14. Then SV-004 (refund required for a cancelled, captured order: closes M04) and a concurrent-delivery intervention (closes M03); rerun the evaluation to show both flip to caught.
+Merge PR #15, then a DUPLICATE_CONCURRENT intervention in the dispatcher and generator; rerun the evaluation, expect M03 caught.
 
 ## Open questions (spec appendix B)
 

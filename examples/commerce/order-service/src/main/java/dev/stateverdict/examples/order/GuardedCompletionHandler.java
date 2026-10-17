@@ -10,9 +10,8 @@ import org.springframework.stereotype.Component;
  * status = 'PENDING'}, so the check and the write are one atomic statement. A customer cancellation
  * that arrives first wins.
  *
- * <p><b>Known gap:</b> if a payment is captured for an order that was cancelled meanwhile, the money
- * has been taken and nothing refunds it. This handler only logs it. A refund flow is future work;
- * a rule for it ("a captured payment for a cancelled order is refunded") would currently fail.
+ * <p>If the money was captured for an order the customer cancelled meanwhile, it publishes
+ * {@code refund.requested}, so the payment service gives the money back (rule SV-004).
  */
 @Component
 @ConditionalOnProperty(name = CompletionHandler.PROPERTY, havingValue = "guarded", matchIfMissing = true)
@@ -21,15 +20,17 @@ public class GuardedCompletionHandler implements CompletionHandler {
     private static final Logger log = LoggerFactory.getLogger(GuardedCompletionHandler.class);
 
     private final OrderRepository orders;
+    private final OrderEventsPublisher events;
     private final Mutations mutations;
 
-    public GuardedCompletionHandler(OrderRepository orders, Mutations mutations) {
+    public GuardedCompletionHandler(OrderRepository orders, OrderEventsPublisher events, Mutations mutations) {
         this.orders = orders;
+        this.events = events;
         this.mutations = mutations;
     }
 
     @Override
-    public void apply(PaymentCompleted event) {
+    public void apply(PaymentCompleted event, String correlationId) {
         String status = CompletionHandler.targetStatus(event);
         if (mutations.active("M05") && PaymentCompleted.DECLINED.equals(event.outcome())) {
             status = Order.CONFIRMED; // M05 (evaluation defect): a declined payment confirms the order
@@ -43,7 +44,12 @@ public class GuardedCompletionHandler implements CompletionHandler {
             log.info("order {} set to {} from payment outcome {}", event.orderId(), status, event.outcome());
             return;
         }
-        log.warn("payment outcome {} ignored for order {}: order is no longer PENDING{}", event.outcome(),
-                event.orderId(), PaymentCompleted.CAPTURED.equals(event.outcome()) ? " (refund required)" : "");
+        boolean cancelled = orders.findById(event.orderId()).map(o -> Order.CANCELLED.equals(o.status())).orElse(false);
+        if (PaymentCompleted.CAPTURED.equals(event.outcome()) && cancelled) {
+            events.refundRequested(event.orderId(), "captured after customer cancellation", correlationId);
+            log.info("payment captured for cancelled order {}: refund requested", event.orderId());
+            return;
+        }
+        log.warn("payment outcome {} ignored for order {}: order is no longer PENDING", event.outcome(), event.orderId());
     }
 }

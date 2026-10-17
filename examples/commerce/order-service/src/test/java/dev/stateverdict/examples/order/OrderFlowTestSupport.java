@@ -78,6 +78,38 @@ abstract class OrderFlowTestSupport {
         awaitStatus(marker.id(), Order.CONFIRMED);
     }
 
+    /** Reads refund.requested and returns the records for one order, waiting up to {@code wait}. */
+    java.util.List<org.apache.kafka.clients.consumer.ConsumerRecord<String, String>> refundRequestsFor(
+            UUID orderId, Duration wait) {
+        java.util.Map<String, Object> config = java.util.Map.of(
+                org.apache.kafka.clients.consumer.ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers(),
+                org.apache.kafka.clients.consumer.ConsumerConfig.GROUP_ID_CONFIG, "test-" + UUID.randomUUID(),
+                org.apache.kafka.clients.consumer.ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        java.util.List<org.apache.kafka.clients.consumer.ConsumerRecord<String, String>> found = new java.util.ArrayList<>();
+        try (var consumer = new org.apache.kafka.clients.consumer.KafkaConsumer<>(config,
+                new org.apache.kafka.common.serialization.StringDeserializer(),
+                new org.apache.kafka.common.serialization.StringDeserializer())) {
+            consumer.subscribe(java.util.List.of("refund.requested"));
+            long deadline = System.nanoTime() + wait.toNanos();
+            while (System.nanoTime() < deadline) {
+                for (var record : consumer.poll(Duration.ofMillis(300))) {
+                    if (orderId.toString().equals(record.key())) {
+                        found.add(record);
+                    }
+                }
+            }
+        }
+        return found;
+    }
+
+    void publishOutcome(UUID orderId, String outcome, String correlationId) throws Exception {
+        PaymentCompleted event = new PaymentCompleted(UUID.randomUUID(), orderId, UUID.randomUUID(), outcome, Instant.now());
+        var record = new org.apache.kafka.clients.producer.ProducerRecord<>("payment.completed", orderId.toString(),
+                json.writeValueAsString(event));
+        record.headers().add("correlation-id", correlationId.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        kafkaTemplate.send(record).get();
+    }
+
     private HttpResponse<String> send(HttpRequest.Builder request) throws Exception {
         return http.send(request.build(), HttpResponse.BodyHandlers.ofString());
     }

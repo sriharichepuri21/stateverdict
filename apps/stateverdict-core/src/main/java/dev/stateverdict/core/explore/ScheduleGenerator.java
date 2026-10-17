@@ -17,8 +17,9 @@ import java.util.Random;
  *   <li>For each fault target (the payment service consuming {@code payment.requested}, the order
  *       service consuming {@code payment.completed}): no fault, {@code DUPLICATE} (2 or 3 copies),
  *       {@code DELAY} (100 to 1500 ms) or {@code HOLD}.</li>
- *   <li>The customer: does not cancel, cancels right after placing the order, or cancels while a
- *       held message is parked (only when a {@code HOLD} was chosen).</li>
+ *   <li>The customer: does not cancel, cancels right after placing the order, cancels while a held
+ *       message is parked (only when a {@code HOLD} was chosen), or cancels after the order is
+ *       CONFIRMED (only for approved amounts).</li>
  *   <li>The amount: usually approved, sometimes above the decline limit.</li>
  * </ul>
  *
@@ -65,8 +66,16 @@ public final class ScheduleGenerator {
             holdTargets.add(PAYMENT_COMPLETED);
         }
 
-        // 0 = no cancel, 1 = cancel right after placing, 2 = cancel while a chosen target is held
-        int cancelMode = random.nextInt(holdTargets.isEmpty() ? 2 : 3);
+        // 0 = no cancel, 1 = cancel right after placing, 2 = cancel while a chosen target is held,
+        // 3 = cancel after the order is CONFIRMED
+        List<Integer> modes = new ArrayList<>(List.of(0, 1));
+        if (!holdTargets.isEmpty()) {
+            modes.add(2);
+        }
+        if (amount == APPROVED_AMOUNT) {
+            modes.add(3);
+        }
+        int cancelMode = modes.get(random.nextInt(modes.size()));
         Target cancelWhileHeld = cancelMode == 2 ? holdTargets.get(random.nextInt(holdTargets.size())) : null;
 
         List<Step> steps = new ArrayList<>();
@@ -86,6 +95,10 @@ public final class ScheduleGenerator {
                 steps.add(new Step.Cancel());
             }
             steps.add(new Step.ReleaseAll(target.service()));
+        }
+        if (cancelMode == 3) {
+            steps.add(new Step.AwaitOrderStatus("CONFIRMED"));
+            steps.add(new Step.Cancel());
         }
         return new Schedule("explore-s" + seed + "-" + generated, steps);
     }

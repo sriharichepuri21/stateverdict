@@ -33,6 +33,6 @@ public class PaymentCompletedListener {
         Header header = record.headers().lastHeader(CheckoutService.CORRELATION_HEADER);
         String runId = header == null ? null : new String(header.value(), StandardCharsets.UTF_8);
         dispatcher.dispatch(new InboundMessage<>(KafkaTopicsConfig.PAYMENT_COMPLETED, runId,
-                event.eventId().toString(), event), handler::apply);
+                event.eventId().toString(), event), payload -> handler.apply(payload, runId));
     }
 }

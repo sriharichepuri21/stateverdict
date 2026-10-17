@@ -5,6 +5,11 @@
 - **Corpus and predictions:** [corpus.md](corpus.md), written before this measurement
 - **Per configuration:** `scripts/evaluate-config.sh`, one CI job each, in parallel
 
+> **Update (PR #15):** SV-004 and the "cancel after confirmed" customer behaviour were added, and the
+> evaluation reran (run [39048156513](https://github.com/sriharichepuri21/stateverdict/actions/runs/39048156513)).
+> **M04 is now caught** (SV-004), so StateVerdict stands at **5/6 defects, 0/3 false alarms**. See
+> [After SV-004](#after-sv-004) below. The original measurement is kept as it was.
+
 ## What was compared
 
 | | Conventional suite | StateVerdict |
@@ -74,3 +79,29 @@ The first two evaluation runs produced wrong numbers, and they would have looked
 3. **The new log check then failed every job**: `docker compose logs | grep -q` exits early, the
    writer gets SIGPIPE, and under `pipefail` that counts as a failure. **Fix:** read the logs into a
    variable before searching.
+
+## After SV-004
+
+PR #15 closed the M04 gap the way the original reading said it would: a refund flow in the fixed
+services, a rule that checks it (**SV-004**: every capture of a cancelled order is refunded, a bounded
+"eventually" rule re-observed for up to 5 s), and a fourth generated customer behaviour, *cancel after
+the order is CONFIRMED*. The conventional suite grew to 37 tests with the refund tests.
+
+| Config | Conventional suite | StateVerdict |
+|---|---|---|
+| baseline, C01, C02 | quiet | quiet |
+| C03 | **false alarm** (3/37) | quiet |
+| M01 | caught | caught: SV-002 |
+| M02 | caught | caught: SV-003, SV-004 |
+| M03 | caught | **missed** |
+| M04 | caught | **caught: SV-004** (was missed) |
+| M05 | caught | caught: SV-001 |
+| M06 | caught | caught: SV-001 |
+
+| | Defects caught | False alarms |
+|---|---|---|
+| Conventional suite (37 tests) | 6 / 6 | 1 / 3 |
+| StateVerdict (4 rules, generated schedules) | **5 / 6** | **0 / 3** |
+
+M04 was caught by generated schedules, not by a hand-written scenario aimed at it: no example schedule
+was added for it. M03 (concurrency) remains the one structural miss.
