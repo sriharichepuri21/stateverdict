@@ -187,7 +187,7 @@ jobs:
   external-target:
     name: "External target: piomin saga (Kafka Streams)"
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5
@@ -205,6 +205,9 @@ jobs:
         run: targets/piomin-saga/wait-ready.sh
       - name: "Measure every schedule, 10 clean-state trials each"
         run: targets/piomin-saga/measure.sh 10
+      - name: "Explore 60 generated schedules (seed 42) and shrink one finding per rule"
+        if: always()
+        run: targets/piomin-saga/explore-and-shrink.sh 60 42
       - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v5
