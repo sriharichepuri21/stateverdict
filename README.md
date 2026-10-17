@@ -143,6 +143,20 @@ message at the same moment (closed by `DUPLICATE_CONCURRENT`). Both were found b
 not by scenarios written for those defects. They are complementary: targeted tests for
 known behaviour, generated schedules plus business rules for the combinations nobody wrote a test for.
 
+## Tested against someone else's code
+
+StateVerdict was run against [piomin/sample-spring-kafka-microservices](https://github.com/piomin/sample-spring-kafka-microservices),
+a widely used Spring Boot and Kafka saga example, at a pinned commit. It took a 143-line adapter and no
+change to its business logic ([targets/piomin-saga](targets/piomin-saga/README.md)). Predictions were
+committed before the first run, and **8 of 8 held, each 10/10, with no false alarm**
+([results](targets/piomin-saga/RESULTS.md)):
+
+- **A rejected order corrupts the balance of the service that rejected it.** A case mismatch
+  (`"PAYMENT"` vs `"payment"`) makes both sides undo a reservation. One unaffordable order leaves the
+  customer with 5000 extra money and a reservation of -5000. No fault is needed.
+- A redelivered message charges the customer twice, and a reply 12 s late leaves the order undecided
+  forever, with its reservations held.
+
 ## How it works
 
 ```text
