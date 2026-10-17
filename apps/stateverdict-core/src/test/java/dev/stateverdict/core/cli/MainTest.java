@@ -54,6 +54,17 @@ class MainTest {
     }
 
     @Test
+    void sagaCommandsValidateTheirInputs() {
+        assertThat(run("explore-saga", "--iterations", "0")).isEqualTo(Main.USAGE_ERROR);
+        assertThat(run("explore-saga", "--colour", "blue")).isEqualTo(Main.USAGE_ERROR);
+        assertThat(run("shrink-saga", "does-not-exist.json")).isEqualTo(Main.USAGE_ERROR);
+        assertThat(run("shrink-saga", "../../targets/piomin-saga/scenarios/baseline.json", "--trials", "0"))
+                .isEqualTo(Main.USAGE_ERROR);
+        // a commerce schedule is not a saga schedule
+        assertThat(run("shrink-saga", "../../scenarios/checkout-baseline.json")).isEqualTo(Main.USAGE_ERROR);
+    }
+
+    @Test
     void shrinkValidatesItsInputs() {
         assertThat(run("shrink", "does-not-exist.json")).isEqualTo(Main.USAGE_ERROR);
         assertThat(run("shrink", "../../scenarios/checkout-baseline.json", "--trials", "0")).isEqualTo(Main.USAGE_ERROR);

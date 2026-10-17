@@ -3,7 +3,6 @@ package dev.stateverdict.core.explore;
 import dev.stateverdict.core.report.RunReport;
 import dev.stateverdict.core.rules.RuleResult;
 import dev.stateverdict.core.schedule.Schedule;
-import dev.stateverdict.core.schedule.Step;
 import dev.stateverdict.core.verdict.EvaluationStatus;
 import dev.stateverdict.core.verdict.Verdict;
 import java.io.IOException;
@@ -24,20 +23,25 @@ import tools.jackson.databind.json.JsonMapper;
  * Runs generated schedules one after another and records which ones violate a rule.
  *
  * <p>Each finding is saved as an ordinary schedule file, so it can be rerun, measured with
- * {@code --trials} and, next, shrunk. A finding from a single run is a lead, not a verdict on
+ * {@code --trials} and shrunk. A finding from a single run is a lead, not a verdict on
  * reproducibility: some failures depend on timing and must be confirmed by repeated trials.
+ *
+ * <p>Independent of the system under test: what a schedule is, how it is generated and described
+ * comes from its {@link ScheduleSpace}.
  */
-public final class Explorer {
+public final class Explorer<S> {
 
-    private final ScheduleExecutor executor;
+    private final ScheduleSpace<S> space;
+    private final ScheduleExecutor<S> executor;
     private final JsonMapper json;
     private final Clock clock;
 
-    public Explorer(ScheduleExecutor executor, JsonMapper json) {
-        this(executor, json, Clock.systemUTC());
+    public Explorer(ScheduleSpace<S> space, ScheduleExecutor<S> executor, JsonMapper json) {
+        this(space, executor, json, Clock.systemUTC());
     }
 
-    Explorer(ScheduleExecutor executor, JsonMapper json, Clock clock) {
+    Explorer(ScheduleSpace<S> space, ScheduleExecutor<S> executor, JsonMapper json, Clock clock) {
+        this.space = space;
         this.executor = executor;
         this.json = json;
         this.clock = clock;
@@ -47,24 +51,25 @@ public final class Explorer {
      * @param saveDir     where to write failing schedules; {@code null} to not save them
      * @param stopOnFirst stop at the first finding instead of completing the campaign
      */
-    public ExplorationReport explore(long seed, int iterations, Path saveDir, boolean stopOnFirst, PrintStream progress)
-            throws InterruptedException, IOException {
+    public ExplorationReport<S> explore(long seed, int iterations, Path saveDir, boolean stopOnFirst,
+                                        PrintStream progress) throws InterruptedException, IOException {
         if (iterations < 1) {
             throw new IllegalArgumentException("iterations must be at least 1");
         }
         Instant started = clock.instant();
-        ScheduleGenerator generator = new ScheduleGenerator(seed);
+        ScheduleSpace.Generator<S> generator = space.generator(seed);
         Map<Verdict, Integer> verdicts = new EnumMap<>(Verdict.class);
         Map<String, Integer> coverage = new TreeMap<>();
-        List<ExplorationReport.Finding> findings = new ArrayList<>();
+        List<ExplorationReport.Finding<S>> findings = new ArrayList<>();
 
         int ran = 0;
         for (int i = 1; i <= iterations; i++) {
-            Schedule schedule = generator.next();
-            if (!schedule.isValid()) {
-                throw new IllegalStateException("generator produced an invalid schedule: " + schedule.problems());
+            S schedule = generator.next();
+            List<String> problems = space.problems(schedule);
+            if (!problems.isEmpty()) {
+                throw new IllegalStateException("generator produced an invalid schedule: " + problems);
             }
-            recordCoverage(schedule, coverage);
+            space.recordCoverage(schedule, coverage);
             RunReport report = executor.execute(schedule);
             ran++;
             verdicts.merge(report.verdict(), 1, Integer::sum);
@@ -72,10 +77,10 @@ public final class Explorer {
                     .filter(result -> result.status() == EvaluationStatus.VIOLATED)
                     .map(RuleResult::ruleId)
                     .toList();
-            String line = String.format("[%3d/%d] %-12s %s", i, iterations, report.verdict(), summary(schedule));
+            String line = String.format("[%3d/%d] %-12s %s", i, iterations, report.verdict(), space.summary(schedule));
             if (!violated.isEmpty()) {
                 String savedAs = save(saveDir, schedule, violated);
-                findings.add(new ExplorationReport.Finding(i, schedule, report.runId(), violated, savedAs, report));
+                findings.add(new ExplorationReport.Finding<>(i, schedule, report.runId(), violated, savedAs, report));
                 line += "   <-- violates " + String.join(", ", violated) + (savedAs == null ? "" : ", saved " + savedAs);
             }
             if (progress != null) {
@@ -87,62 +92,21 @@ public final class Explorer {
         }
 
         Verdict overall = overall(verdicts);
-        return new ExplorationReport(seed, ran, verdicts, coverage, findings, overall,
+        return new ExplorationReport<>(seed, ran, verdicts, coverage, findings, overall,
                 Duration.between(started, clock.instant()).toMillis());
     }
 
-    /** One line describing a schedule's faults and customer action. */
+    /** One line describing a commerce schedule's faults and customer action. */
     public static String summary(Schedule schedule) {
-        List<String> parts = new ArrayList<>();
-        for (Step.Arm arm : schedule.arms()) {
-            parts.add(arm.topic() + ":" + arm.fault());
-        }
-        if (parts.isEmpty()) {
-            parts.add("no faults");
-        }
-        parts.add(cancelMode(schedule));
-        return String.join(", ", parts);
+        return new CommerceSpace().summary(schedule);
     }
 
-    private static String cancelMode(Schedule schedule) {
-        List<Step> steps = schedule.steps();
-        for (int i = 0; i < steps.size(); i++) {
-            if (steps.get(i) instanceof Step.Cancel) {
-                Step previous = i > 0 ? steps.get(i - 1) : null;
-                if (previous instanceof Step.AwaitHeld await) {
-                    return "cancel while " + await.topic() + " held";
-                }
-                if (previous instanceof Step.AwaitOrderStatus await) {
-                    return "cancel after order " + await.status();
-                }
-                return "cancel right after order";
-            }
-        }
-        return "no cancel";
-    }
-
-    private static void recordCoverage(Schedule schedule, Map<String, Integer> coverage) {
-        for (Step.Arm arm : schedule.arms()) {
-            coverage.merge(arm.topic() + " " + arm.fault().type(), 1, Integer::sum);
-        }
-        for (String topic : List.of("payment.requested", "payment.completed")) {
-            boolean armed = schedule.arms().stream().anyMatch(arm -> arm.topic().equals(topic));
-            if (!armed) {
-                coverage.merge(topic + " none", 1, Integer::sum);
-            }
-        }
-        coverage.merge("customer: " + cancelMode(schedule), 1, Integer::sum);
-        boolean declined = schedule.steps().stream().anyMatch(step ->
-                step instanceof Step.PlaceOrder place && place.amountCents() == ScheduleGenerator.DECLINED_AMOUNT);
-        coverage.merge(declined ? "amount: declined" : "amount: approved", 1, Integer::sum);
-    }
-
-    private String save(Path saveDir, Schedule schedule, List<String> violated) throws IOException {
+    private String save(Path saveDir, S schedule, List<String> violated) throws IOException {
         if (saveDir == null) {
             return null;
         }
         Files.createDirectories(saveDir);
-        String name = String.join("-", violated).toLowerCase() + "-" + schedule.name() + ".json";
+        String name = String.join("-", violated).toLowerCase() + "-" + space.name(schedule) + ".json";
         Path file = saveDir.resolve(name);
         Files.writeString(file, json.writerWithDefaultPrettyPrinter().writeValueAsString(schedule));
         return file.toString();
@@ -158,7 +122,7 @@ public final class Explorer {
     }
 
     /** Human-readable summary of a finished campaign. */
-    public static String toConsole(ExplorationReport report) {
+    public String toConsole(ExplorationReport<S> report) {
         StringBuilder out = new StringBuilder();
         out.append("\nExploration: seed ").append(report.seed()).append(", ").append(report.iterations())
                 .append(" generated schedules, ").append(report.durationMs() / 1000).append(" s\n\n");
@@ -169,12 +133,12 @@ public final class Explorer {
         out.append("\n\nCoverage (how often each option was generated):\n");
         report.coverage().forEach((key, count) -> out.append(String.format("  %-36s %d%n", key, count)));
         out.append("\nFindings: ").append(report.findings().size()).append("\n");
-        for (ExplorationReport.Finding finding : report.findings()) {
+        for (ExplorationReport.Finding<S> finding : report.findings()) {
             out.append("  #").append(finding.iteration()).append("  ").append(String.join(", ", finding.violatedRules()))
-                    .append("  ").append(summary(finding.schedule())).append("\n");
-            for (int i = 0; i < finding.schedule().steps().size(); i++) {
-                out.append("        ").append(i + 1).append(". ").append(finding.schedule().steps().get(i).describe())
-                        .append("\n");
+                    .append("  ").append(space.summary(finding.schedule())).append("\n");
+            List<String> steps = space.steps(finding.schedule());
+            for (int i = 0; i < steps.size(); i++) {
+                out.append("        ").append(i + 1).append(". ").append(steps.get(i)).append("\n");
             }
             if (finding.savedAs() != null) {
                 out.append("        saved: ").append(finding.savedAs()).append("\n");
@@ -185,7 +149,7 @@ public final class Explorer {
     }
 
     /** Distinct rule ids violated anywhere in the campaign. */
-    public static List<String> violatedRules(ExplorationReport report) {
+    public static List<String> violatedRules(ExplorationReport<?> report) {
         return report.findings().stream().flatMap(f -> f.violatedRules().stream()).distinct().sorted().toList();
     }
 }

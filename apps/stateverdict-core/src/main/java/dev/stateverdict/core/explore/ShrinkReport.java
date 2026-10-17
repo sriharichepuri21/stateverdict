@@ -1,6 +1,5 @@
 package dev.stateverdict.core.explore;
 
-import dev.stateverdict.core.schedule.Schedule;
 import java.util.List;
 
 /**
@@ -17,12 +16,12 @@ import java.util.List;
  * @param candidatesTried   candidates run during the search
  * @param runs              total schedule runs, including confirmation
  */
-public record ShrinkReport(
+public record ShrinkReport<S>(
         Status status,
         List<String> targetRules,
-        Schedule original,
+        S original,
         int originalFailures,
-        Schedule minimized,
+        S minimized,
         int minimizedFailures,
         int confirmTrials,
         int acceptanceTrials,

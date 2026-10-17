@@ -1,5 +1,12 @@
 package dev.stateverdict.core.cli;
 
+import dev.stateverdict.core.explore.CommerceSpace;
+import dev.stateverdict.core.explore.ExplorationReport;
+import dev.stateverdict.core.explore.Explorer;
+import dev.stateverdict.core.explore.ScheduleExecutor;
+import dev.stateverdict.core.explore.ScheduleSpace;
+import dev.stateverdict.core.explore.ShrinkReport;
+import dev.stateverdict.core.explore.Shrinker;
 import dev.stateverdict.core.report.ReportWriter;
 import dev.stateverdict.core.report.RunReport;
 import dev.stateverdict.core.report.TrialSummary;
@@ -12,6 +19,7 @@ import dev.stateverdict.core.runner.DuplicateDeliveryScenario;
 import dev.stateverdict.core.runner.ScheduleRunner;
 import dev.stateverdict.core.saga.SagaRunner;
 import dev.stateverdict.core.saga.SagaSchedule;
+import dev.stateverdict.core.saga.SagaSpace;
 import dev.stateverdict.core.schedule.Schedule;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -37,6 +45,7 @@ import tools.jackson.databind.json.JsonMapper;
  * stateverdict shrink SCHEDULE.json [--trials K] [--confirm N] [--rules R1,R2] [--out PATH] [--report PATH] ...
  * stateverdict run-saga SCHEDULE.json [--order-url URL] [--payment-url URL] [--stock-url URL]
  *                  [--deadline-ms MS] [--trials N] [--report PATH]
+ * stateverdict explore-saga [...]   stateverdict shrink-saga SCHEDULE.json [...]
  * stateverdict replay-evidence REPORT.json
  * </pre>
  *
@@ -74,6 +83,9 @@ public final class Main {
                 Run a schedule against the external saga target (targets/piomin-saga) and evaluate
                 SAGA-1 to SAGA-3. --order-url (default $STATEVERDICT_TARGET_ORDER_URL or http://localhost:8091)
                 --payment-url (8092)  --stock-url (8093)  --deadline-ms (default 25000)  --trials  --report
+              stateverdict explore-saga [options]   stateverdict shrink-saga SCHEDULE.json [options]
+                explore and shrink, against the external saga target (same options as explore and shrink,
+                plus --stock-url; URLs default as for run-saga)
               stateverdict replay-evidence REPORT.json
                 Re-evaluate the rules on a saved report's evidence. Contacts no service.
 
@@ -93,6 +105,10 @@ public final class Main {
             .concat(ALL_RULES.stream(), SagaRunner.rules().stream()).toList();
     private static final java.util.Set<String> SAGA_OPTIONS = java.util.Set.of("--order-url", "--payment-url",
             "--stock-url", "--deadline-ms", "--trials", "--report");
+    private static final java.util.Set<String> SAGA_EXPLORE_OPTIONS = java.util.Set.of("--order-url", "--payment-url",
+            "--stock-url", "--deadline-ms", "--iterations", "--seed", "--out", "--report", "--stop-on-first");
+    private static final java.util.Set<String> SAGA_SHRINK_OPTIONS = java.util.Set.of("--order-url", "--payment-url",
+            "--stock-url", "--deadline-ms", "--rules", "--trials", "--confirm", "--out", "--report");
     private static final java.util.Set<String> RUN_OPTIONS =
             java.util.Set.of("--order-url", "--payment-url", "--copies", "--deadline-ms", "--settle-ms", "--trials", "--report");
     private static final java.util.Set<String> EXPLORE_OPTIONS = java.util.Set.of("--order-url", "--payment-url",
@@ -116,7 +132,13 @@ public final class Main {
                 return shrink(Path.of(args[1]), options(args, 2, SHRINK_OPTIONS), out);
             }
             if (args.length >= 1 && args[0].equals("explore")) {
-                return explore(options(args, 1, EXPLORE_OPTIONS), writer, out);
+                return explore(options(args, 1, EXPLORE_OPTIONS), out);
+            }
+            if (args.length >= 1 && args[0].equals("explore-saga")) {
+                return exploreSaga(options(args, 1, SAGA_EXPLORE_OPTIONS), out);
+            }
+            if (args.length >= 2 && args[0].equals("shrink-saga")) {
+                return shrinkSaga(Path.of(args[1]), options(args, 2, SAGA_SHRINK_OPTIONS), out);
             }
             if (args.length >= 2 && args[0].equals("run-schedule")) {
                 return runSchedule(Path.of(args[1]), options(args, 2, SCHEDULE_OPTIONS), writer, out);
@@ -202,23 +224,8 @@ public final class Main {
     private static int runSaga(Path schedulePath, Map<String, String> options, ReportWriter writer, PrintStream out)
             throws IOException, InterruptedException {
         JsonMapper json = JsonMapper.builder().build();
-        SagaSchedule schedule;
-        try {
-            schedule = json.readValue(Files.readString(schedulePath), SagaSchedule.class);
-        } catch (RuntimeException e) {
-            throw new IllegalArgumentException("cannot read saga schedule " + schedulePath + ": " + e.getMessage());
-        }
-        List<String> problems = schedule.problems();
-        if (!problems.isEmpty()) {
-            throw new IllegalArgumentException("invalid saga schedule " + schedulePath + ": " + String.join("; ", problems));
-        }
-        SagaRunner.Config defaults = SagaRunner.Config.defaults(
-                URI.create(options.getOrDefault("--order-url", env("STATEVERDICT_TARGET_ORDER_URL", "http://localhost:8091"))),
-                URI.create(options.getOrDefault("--payment-url", env("STATEVERDICT_TARGET_PAYMENT_URL", "http://localhost:8092"))),
-                URI.create(options.getOrDefault("--stock-url", env("STATEVERDICT_TARGET_STOCK_URL", "http://localhost:8093"))));
-        SagaRunner.Config config = new SagaRunner.Config(defaults.orderService(), defaults.paymentService(),
-                defaults.stockService(), Duration.ofMillis(intOption(options, "--deadline-ms", 25_000)),
-                defaults.settleWindow(), defaults.eventualWindow());
+        SagaSchedule schedule = readSagaSchedule(json, schedulePath);
+        SagaRunner.Config config = sagaConfig(options);
         int trials = intOption(options, "--trials", 1);
         if (trials < 1 || trials > MAX_TRIALS) {
             throw new IllegalArgumentException("--trials must be between 1 and " + MAX_TRIALS);
@@ -246,10 +253,21 @@ public final class Main {
         return summarise(TrialSummary.of(schedule.name(), fault, reports), options.get("--report"), writer, out);
     }
 
-    private static int explore(Map<String, String> options, ReportWriter writer, PrintStream out)
-            throws IOException, InterruptedException {
+    private static int explore(Map<String, String> options, PrintStream out) throws IOException, InterruptedException {
         JsonMapper json = JsonMapper.builder().build();
         ScheduleRunner runner = new ScheduleRunner(scheduleConfig(options), ALL_RULES, json);
+        return exploreWith(new CommerceSpace(), runner::run, options, json, out);
+    }
+
+    private static int exploreSaga(Map<String, String> options, PrintStream out) throws IOException, InterruptedException {
+        JsonMapper json = JsonMapper.builder().build();
+        SagaRunner runner = new SagaRunner(sagaConfig(options), SagaRunner.rules(), json);
+        return exploreWith(new SagaSpace(), runner::run, options, json, out);
+    }
+
+    /** The same campaign for any kind of schedule: only the space and the runner differ. */
+    private static <S> int exploreWith(ScheduleSpace<S> space, ScheduleExecutor<S> executor, Map<String, String> options,
+                                       JsonMapper json, PrintStream out) throws IOException, InterruptedException {
         int iterations = intOption(options, "--iterations", 20);
         if (iterations < 1 || iterations > MAX_TRIALS) {
             throw new IllegalArgumentException("--iterations must be between 1 and " + MAX_TRIALS);
@@ -260,9 +278,9 @@ public final class Main {
 
         out.println("Exploring " + iterations + " generated schedules, seed " + seed
                 + " (rerun with --seed " + seed + " to get the same schedules)\n");
-        dev.stateverdict.core.explore.ExplorationReport report = new dev.stateverdict.core.explore.Explorer(runner::run, json)
-                .explore(seed, iterations, saveDir, stopOnFirst, out);
-        out.print(dev.stateverdict.core.explore.Explorer.toConsole(report));
+        Explorer<S> explorer = new Explorer<>(space, executor, json);
+        ExplorationReport<S> report = explorer.explore(seed, iterations, saveDir, stopOnFirst, out);
+        out.print(explorer.toConsole(report));
         String reportPath = options.get("--report");
         if (reportPath != null) {
             write(Path.of(reportPath), json.writerWithDefaultPrettyPrinter().writeValueAsString(report));
@@ -276,6 +294,21 @@ public final class Main {
             throws IOException, InterruptedException {
         JsonMapper json = JsonMapper.builder().build();
         Schedule schedule = readSchedule(json, schedulePath);
+        ScheduleRunner runner = new ScheduleRunner(scheduleConfig(options), ALL_RULES, json);
+        return shrinkWith(new CommerceSpace(), runner::run, schedule, schedulePath, options, json, out);
+    }
+
+    private static int shrinkSaga(Path schedulePath, Map<String, String> options, PrintStream out)
+            throws IOException, InterruptedException {
+        JsonMapper json = JsonMapper.builder().build();
+        SagaSchedule schedule = readSagaSchedule(json, schedulePath);
+        SagaRunner runner = new SagaRunner(sagaConfig(options), SagaRunner.rules(), json);
+        return shrinkWith(new SagaSpace(), runner::run, schedule, schedulePath, options, json, out);
+    }
+
+    private static <S> int shrinkWith(ScheduleSpace<S> space, ScheduleExecutor<S> executor, S schedule, Path schedulePath,
+                                      Map<String, String> options, JsonMapper json, PrintStream out)
+            throws IOException, InterruptedException {
         int trials = intOption(options, "--trials", 3);
         int confirm = intOption(options, "--confirm", 10);
         if (trials < 1 || trials > 50 || confirm < 1 || confirm > MAX_TRIALS) {
@@ -284,15 +317,14 @@ public final class Main {
         List<String> rules = options.containsKey("--rules")
                 ? List.of(options.get("--rules").split(","))
                 : List.of();
-        ScheduleRunner runner = new ScheduleRunner(scheduleConfig(options), ALL_RULES, json);
         out.println("Shrinking " + schedulePath + ": each candidate must fail " + trials + "/" + trials
                 + "; original and result are measured over " + confirm + " runs\n");
-        dev.stateverdict.core.explore.ShrinkReport report =
-                new dev.stateverdict.core.explore.Shrinker(runner::run, trials, confirm).shrink(schedule, rules, out);
-        out.print(dev.stateverdict.core.explore.Shrinker.toConsole(report));
+        Shrinker<S> shrinker = new Shrinker<>(space, executor, trials, confirm);
+        ShrinkReport<S> report = shrinker.shrink(schedule, rules, out);
+        out.print(shrinker.toConsole(report));
         Path minimizedPath = Path.of(options.getOrDefault("--out",
                 schedulePath.toString().replaceFirst("\\.json$", "") + ".min.json"));
-        if (report.status() == dev.stateverdict.core.explore.ShrinkReport.Status.MINIMIZED) {
+        if (report.status() == ShrinkReport.Status.MINIMIZED) {
             write(minimizedPath, json.writerWithDefaultPrettyPrinter().writeValueAsString(report.minimized()));
             out.println("Minimized schedule: " + minimizedPath);
         }
@@ -302,11 +334,35 @@ public final class Main {
             out.println("Report: " + reportPath);
         }
         // 1: a reliably failing, minimized schedule (a confirmed defect); 2: not reliably reproducible.
-        int exit = report.status() == dev.stateverdict.core.explore.ShrinkReport.Status.MINIMIZED
+        int exit = report.status() == ShrinkReport.Status.MINIMIZED
                 ? (report.minimizedFailures() == report.confirmTrials() ? 1 : 2)
                 : (report.originalFailures() == 0 ? 0 : 2);
         out.println("Exit code: " + exit);
         return exit;
+    }
+
+    private static SagaSchedule readSagaSchedule(JsonMapper json, Path path) throws IOException {
+        SagaSchedule schedule;
+        try {
+            schedule = json.readValue(Files.readString(path), SagaSchedule.class);
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("cannot read saga schedule " + path + ": " + e.getMessage());
+        }
+        List<String> problems = schedule.problems();
+        if (!problems.isEmpty()) {
+            throw new IllegalArgumentException("invalid saga schedule " + path + ": " + String.join("; ", problems));
+        }
+        return schedule;
+    }
+
+    private static SagaRunner.Config sagaConfig(Map<String, String> options) {
+        SagaRunner.Config defaults = SagaRunner.Config.defaults(
+                URI.create(options.getOrDefault("--order-url", env("STATEVERDICT_TARGET_ORDER_URL", "http://localhost:8091"))),
+                URI.create(options.getOrDefault("--payment-url", env("STATEVERDICT_TARGET_PAYMENT_URL", "http://localhost:8092"))),
+                URI.create(options.getOrDefault("--stock-url", env("STATEVERDICT_TARGET_STOCK_URL", "http://localhost:8093"))));
+        return new SagaRunner.Config(defaults.orderService(), defaults.paymentService(), defaults.stockService(),
+                Duration.ofMillis(intOption(options, "--deadline-ms", 25_000)), defaults.settleWindow(),
+                defaults.eventualWindow());
     }
 
     private static Schedule readSchedule(JsonMapper json, Path path) throws IOException {

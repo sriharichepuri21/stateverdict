@@ -156,6 +156,10 @@ committed before the first run, and **8 of 8 held, each 10/10, with no false ala
   customer with 5000 extra money and a reservation of -5000. No fault is needed.
 - A redelivered message charges the customer twice, and a reply 12 s late leaves the order undecided
   forever, with its reservations held.
+- **Generated exploration**, with the same engine and a schedule space for this target, found all of
+  these blind: 45 of 60 schedules failed. The shrinker reduced each kind of finding to a single cause,
+  confirmed 10/10. One of them was not predicted: a duplicate in the *stock* service makes the
+  *customer* pay twice, through the order service's join.
 
 ## How it works
 
