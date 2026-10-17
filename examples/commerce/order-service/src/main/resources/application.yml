@@ -34,3 +34,7 @@ stateverdict:
 order:
   completion:
     handler: ${ORDER_COMPLETION_HANDLER:guarded}
+
+# Evaluation only: deliberately altered behaviour for the defect corpus (docs/evaluation/corpus.md).
+evaluation:
+  mutation: ${EVALUATION_MUTATION:}

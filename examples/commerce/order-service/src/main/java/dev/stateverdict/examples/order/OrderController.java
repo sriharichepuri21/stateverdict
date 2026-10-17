@@ -34,10 +34,12 @@ public class OrderController {
 
     private final CheckoutService checkout;
     private final OrderRepository orders;
+    private final Mutations mutations;
 
-    public OrderController(CheckoutService checkout, OrderRepository orders) {
+    public OrderController(CheckoutService checkout, OrderRepository orders, Mutations mutations) {
         this.checkout = checkout;
         this.orders = orders;
+        this.mutations = mutations;
     }
 
     @PostMapping
@@ -63,7 +65,7 @@ public class OrderController {
      */
     @PostMapping("/{id}/cancel")
     public ResponseEntity<Order> cancel(@PathVariable UUID id) {
-        boolean cancelled = orders.cancelIfPending(id);
+        boolean cancelled = mutations.active("M04") ? orders.cancelUnconditionally(id) : orders.cancelIfPending(id);
         return orders.findById(id)
                 .map(order -> cancelled ? ResponseEntity.ok(order) : ResponseEntity.status(HttpStatus.CONFLICT).body(order))
                 .orElseGet(() -> ResponseEntity.notFound().build());

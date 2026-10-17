@@ -53,6 +53,21 @@ public class OrderRepository {
                 .update() == 1;
     }
 
+    /**
+     * M04 (evaluation defect): cancels the order whatever its status, including a CONFIRMED one.
+     *
+     * @return true if the order exists
+     */
+    public boolean cancelUnconditionally(UUID id) {
+        return jdbc.sql("""
+                        UPDATE orders
+                        SET status = 'CANCELLED', cancel_requested_at = now(), updated_at = now()
+                        WHERE id = :id
+                        """)
+                .param("id", id)
+                .update() == 1;
+    }
+
     /** Sets the status unconditionally. Used only by the deliberately naive completion handler. */
     public int setStatus(UUID id, String status) {
         return jdbc.sql("UPDATE orders SET status = :status, updated_at = now() WHERE id = :id")
