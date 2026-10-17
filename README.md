@@ -132,13 +132,14 @@ Measured on a corpus of 6 deliberate defects and 3 harmless changes
 
 | | Defects caught | False alarms |
 |---|---|---|
-| The services' 32 JUnit + Testcontainers tests | **6 / 6** | 1 / 3 |
-| StateVerdict (3 business rules, generated schedules) | 4 / 6 | **0 / 3** |
+| The services' 37 JUnit + Testcontainers tests | **6 / 6** | 1 / 3 |
+| StateVerdict (4 business rules, generated schedules) | 5 / 6 | **0 / 3** |
 
 The JUnit suite was written by the same person who wrote the defects, so it was aimed at them. It also
 raised a false alarm on a harmless change because three tests assert implementation details.
-StateVerdict knew nothing about the code; it missed one concurrency defect (its dispatcher delivers
-duplicates sequentially) and one defect no rule covered. They are complementary: targeted tests for
+StateVerdict knew nothing about the code. It first missed two defects; adding a refund rule (SV-004)
+caught the second, and the one left is a concurrency defect its dispatcher cannot produce yet (it
+delivers duplicates sequentially). They are complementary: targeted tests for
 known behaviour, generated schedules plus business rules for the combinations nobody wrote a test for.
 
 ## How it works
@@ -199,7 +200,7 @@ $SV replay-evidence artifacts/dup.json                       # same verdict, no 
 $SV run checkout-duplicate-payment-request --copies 2 --trials 10
 ```
 
-Developing locally with Java 21 and Maven: `mvn -B verify` runs all 142 tests, using Testcontainers
+Developing locally with Java 21 and Maven: `mvn -B verify` runs all 159 tests, using Testcontainers
 for PostgreSQL and Kafka.
 
 ## Status and limits
@@ -209,8 +210,8 @@ is complete; see the [retrospective](docs/results/spike-retrospective.md). Since
 flow with customer cancellation, schedules, rule SV-003, the explorer (gate 2 met) and the shrinker
 (gate 3 met). StateVerdict covers two defect classes (duplicate side effects, and an outcome
 overwriting a cancellation), with sequential delivery on a single-partition topology. Gate 4 has a
-measured head-to-head with the conventional suite. Next: SV-004 (refund for a cancelled, captured
-order), which would catch M04, and a concurrent-delivery intervention, which would catch M03.
+measured head-to-head with the conventional suite, and SV-004 (refunds) closed one of the two gaps it
+found. Next: a concurrent-delivery intervention, which should catch the remaining one (M03).
 
 ## Guiding principle
 

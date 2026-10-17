@@ -53,3 +53,12 @@
 - **A gap this exposes:** with the *fixed* order handler, "place, then cancel" leaves a cancelled order
   whose payment was captured and never refunded. No rule checks refunds yet, so StateVerdict reports
   PASS. That is a missing rule, not a pass: the next rule to add.
+
+## Update: the no-fault race is timing-dependent after all (PR #15)
+
+In CI run 39048156582 the no-fault finding ("place the order, cancel it") failed **9 of 10**
+confirmation runs, against 10 of 10 in the earlier run. The shrinker classified it as **UNRELIABLE**
+and did not shrink it, which is what it is designed to do: with a 9/10 original, a candidate that
+"passes" once could just be the unlucky run. The same race reached through a fault-carrying finding
+still shrank to "place, cancel" and failed 10/10 in that run. The `HOLD` schedule, which forces the
+ordering, remains the regression test.
