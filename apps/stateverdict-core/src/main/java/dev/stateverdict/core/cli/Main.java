@@ -5,6 +5,7 @@ import dev.stateverdict.core.report.RunReport;
 import dev.stateverdict.core.report.TrialSummary;
 import dev.stateverdict.core.rules.CancelledOrderNotConfirmedRule;
 import dev.stateverdict.core.rules.CaptureUniquenessRule;
+import dev.stateverdict.core.rules.ConfirmedOrderHasCaptureRule;
 import dev.stateverdict.core.rules.Rule;
 import dev.stateverdict.core.runner.DuplicateDeliveryScenario;
 import dev.stateverdict.core.runner.ScheduleRunner;
@@ -53,7 +54,7 @@ public final class Main {
                 --trials N          repeat N times, each from clean state, and summarise (default 1)
                 --report PATH       write the JSON report (or trial summary) here
               stateverdict run-schedule SCHEDULE.json [options]
-                Run a schedule of steps (see scenarios/) and evaluate SV-002 and SV-003.
+                Run a schedule of steps (see scenarios/) and evaluate SV-001, SV-002 and SV-003.
                 Options: --order-url, --payment-url, --deadline-ms, --settle-ms, --trials, --report
               stateverdict explore [options]
                 Generate valid schedules from a seed, run each once, and save any that violate a rule.
@@ -75,7 +76,8 @@ public final class Main {
 
     private static final List<Rule> RULES = List.of(new CaptureUniquenessRule());
     /** Every rule a schedule run evaluates; replay picks the ones a saved report used. */
-    private static final List<Rule> ALL_RULES = List.of(new CaptureUniquenessRule(), new CancelledOrderNotConfirmedRule());
+    private static final List<Rule> ALL_RULES = List.of(
+            new ConfirmedOrderHasCaptureRule(), new CaptureUniquenessRule(), new CancelledOrderNotConfirmedRule());
     private static final java.util.Set<String> RUN_OPTIONS =
             java.util.Set.of("--order-url", "--payment-url", "--copies", "--deadline-ms", "--settle-ms", "--trials", "--report");
     private static final java.util.Set<String> EXPLORE_OPTIONS = java.util.Set.of("--order-url", "--payment-url",
