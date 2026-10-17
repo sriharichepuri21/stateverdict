@@ -88,6 +88,24 @@ docker compose -f infrastructure/compose/docker-compose.yml --profile cli run --
 
 See [scenarios/](scenarios/README.md) for the step format and examples.
 
+## Exploration: finding schedules nobody wrote
+
+`stateverdict explore` generates random but valid schedules from a seed (faults on either event,
+customer cancels at different moments, approved or declined amounts), runs each once, and saves
+every schedule that violates a rule as a file you can rerun. Nobody tells it where the bugs are.
+
+```bash
+docker compose -f infrastructure/compose/docker-compose.yml --profile cli run --rm stateverdict \
+  explore --iterations 60 --seed 42
+```
+
+The same seed always generates the same schedules. A finding from one run is a lead; confirm it
+with `run-schedule <saved file> --trials 10`.
+
+Seed 42, 60 schedules: against the naive handlers it found **24 violations of SV-002 and SV-003**, only
+3 of them the race written by hand; 4 needed no fault at all, just a customer cancelling quickly.
+Against the fixed handlers all 60 passed. Details: [docs/results/exploration.md](docs/results/exploration.md).
+
 ## How it works
 
 ```text
@@ -146,17 +164,17 @@ $SV replay-evidence artifacts/dup.json                       # same verdict, no 
 $SV run checkout-duplicate-payment-request --copies 2 --trials 10
 ```
 
-Developing locally with Java 21 and Maven: `mvn -B verify` runs all 113 tests, using Testcontainers
+Developing locally with Java 21 and Maven: `mvn -B verify` runs all 126 tests, using Testcontainers
 for PostgreSQL and Kafka.
 
 ## Status and limits
 
 The seven-step technical spike from the [specification](docs/specification/StateVerdict_Engineering_Specification_v1.0.pdf)
 is complete; see the [retrospective](docs/results/spike-retrospective.md). Since then: a second event
-flow with customer cancellation, schedules, and rule SV-003. StateVerdict now covers two defect
-classes (duplicate side effects, and an outcome overwriting a cancellation), with sequential delivery
-on a single-partition topology. Next: generating schedules automatically (explorer) and shrinking
-failing ones.
+flow with customer cancellation, schedules, rule SV-003, and the explorer (gate 2 met). StateVerdict
+covers two defect classes (duplicate side effects, and an outcome overwriting a cancellation), with
+sequential delivery on a single-partition topology. Next: shrinking failing schedules and measuring
+how reliably each one reproduces (gate 3).
 
 ## Guiding principle
 
