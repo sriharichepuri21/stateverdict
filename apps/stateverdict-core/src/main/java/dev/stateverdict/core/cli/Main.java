@@ -38,8 +38,8 @@ public final class Main {
     private static final String USAGE = """
             Usage:
               stateverdict run checkout-duplicate-payment-request [options]
-                --order-url URL     order service base URL   (default http://localhost:8081)
-                --payment-url URL   payment service base URL (default http://localhost:8082)
+                --order-url URL     order service base URL   (default $STATEVERDICT_ORDER_URL or http://localhost:8081)
+                --payment-url URL   payment service base URL (default $STATEVERDICT_PAYMENT_URL or http://localhost:8082)
                 --copies N          deliveries of payment.requested; 1 = no fault (default 2)
                 --deadline-ms MS    max wait for all deliveries (default 20000)
                 --settle-ms MS      extra wait before reading state (default 2000)
@@ -90,8 +90,8 @@ public final class Main {
     private static int runScenario(Map<String, String> options, ReportWriter writer, PrintStream out)
             throws IOException, InterruptedException {
         DuplicateDeliveryScenario.Config config = new DuplicateDeliveryScenario.Config(
-                URI.create(options.getOrDefault("--order-url", "http://localhost:8081")),
-                URI.create(options.getOrDefault("--payment-url", "http://localhost:8082")),
+                URI.create(options.getOrDefault("--order-url", env("STATEVERDICT_ORDER_URL", "http://localhost:8081"))),
+                URI.create(options.getOrDefault("--payment-url", env("STATEVERDICT_PAYMENT_URL", "http://localhost:8082"))),
                 intOption(options, "--copies", 2),
                 129_900,
                 Duration.ofMillis(intOption(options, "--deadline-ms", 20_000)),
@@ -137,6 +137,11 @@ public final class Main {
         }
         out.println("Exit code:       " + report.verdict().exitCode());
         return report.verdict().exitCode();
+    }
+
+    private static String env(String name, String fallback) {
+        String value = System.getenv(name);
+        return value == null || value.isBlank() ? fallback : value;
     }
 
     private static void write(Path path, String content) throws IOException {

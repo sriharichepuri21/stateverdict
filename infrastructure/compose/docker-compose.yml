@@ -82,3 +82,20 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+
+  # The StateVerdict CLI, run on demand on the same network as the services:
+  #   docker compose -f infrastructure/compose/docker-compose.yml run --rm stateverdict \
+  #     run checkout-duplicate-payment-request --copies 2
+  # Reports written under /work/artifacts land in ./artifacts in the repository.
+  stateverdict:
+    profiles: ["cli"]
+    build:
+      context: ../..
+      dockerfile: apps/stateverdict-core/Dockerfile
+    environment:
+      STATEVERDICT_ORDER_URL: http://order-service:8081
+      STATEVERDICT_PAYMENT_URL: http://payment-service:8082
+    # Write reports as the host user so they are not owned by root.
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    volumes:
+      - ../../artifacts:/work/artifacts
