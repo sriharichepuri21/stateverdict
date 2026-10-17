@@ -29,6 +29,7 @@ import tools.jackson.databind.json.JsonMapper;
  *                  [--copies N] [--deadline-ms MS] [--settle-ms MS] [--trials N] [--report PATH]
  * stateverdict run-schedule SCHEDULE.json [--order-url URL] [--payment-url URL] [--deadline-ms MS]
  *                  [--settle-ms MS] [--trials N] [--report PATH]
+ * stateverdict explore [--iterations N] [--seed S] [--out DIR] [--stop-on-first true] [--report PATH] ...
  * stateverdict replay-evidence REPORT.json
  * </pre>
  *
@@ -53,6 +54,10 @@ public final class Main {
               stateverdict run-schedule SCHEDULE.json [options]
                 Run a schedule of steps (see scenarios/) and evaluate SV-002 and SV-003.
                 Options: --order-url, --payment-url, --deadline-ms, --settle-ms, --trials, --report
+              stateverdict explore [options]
+                Generate valid schedules from a seed, run each once, and save any that violate a rule.
+                --iterations N (default 20)  --seed S (printed; reuse to repeat)  --out DIR (default artifacts/found)
+                --stop-on-first true  --report PATH  plus --order-url, --payment-url, --deadline-ms, --settle-ms
               stateverdict replay-evidence REPORT.json
                 Re-evaluate the rules on a saved report's evidence. Contacts no service.
 
@@ -67,6 +72,8 @@ public final class Main {
     private static final List<Rule> ALL_RULES = List.of(new CaptureUniquenessRule(), new CancelledOrderNotConfirmedRule());
     private static final java.util.Set<String> RUN_OPTIONS =
             java.util.Set.of("--order-url", "--payment-url", "--copies", "--deadline-ms", "--settle-ms", "--trials", "--report");
+    private static final java.util.Set<String> EXPLORE_OPTIONS = java.util.Set.of("--order-url", "--payment-url",
+            "--deadline-ms", "--settle-ms", "--iterations", "--seed", "--out", "--report", "--stop-on-first");
     private static final java.util.Set<String> SCHEDULE_OPTIONS =
             java.util.Set.of("--order-url", "--payment-url", "--deadline-ms", "--settle-ms", "--trials", "--report");
 
@@ -79,6 +86,9 @@ public final class Main {
         try {
             if (args.length >= 2 && args[0].equals("run") && args[1].equals(DuplicateDeliveryScenario.NAME)) {
                 return runScenario(options(args, 2, RUN_OPTIONS), writer, out);
+            }
+            if (args.length >= 1 && args[0].equals("explore")) {
+                return explore(options(args, 1, EXPLORE_OPTIONS), writer, out);
             }
             if (args.length >= 2 && args[0].equals("run-schedule")) {
                 return runSchedule(Path.of(args[1]), options(args, 2, SCHEDULE_OPTIONS), writer, out);
@@ -142,11 +152,7 @@ public final class Main {
         if (!problems.isEmpty()) {
             throw new IllegalArgumentException("invalid schedule " + schedulePath + ":\n  " + String.join("\n  ", problems));
         }
-        ScheduleRunner.Config config = new ScheduleRunner.Config(
-                URI.create(options.getOrDefault("--order-url", env("STATEVERDICT_ORDER_URL", "http://localhost:8081"))),
-                URI.create(options.getOrDefault("--payment-url", env("STATEVERDICT_PAYMENT_URL", "http://localhost:8082"))),
-                Duration.ofMillis(intOption(options, "--deadline-ms", 20_000)),
-                Duration.ofMillis(intOption(options, "--settle-ms", 2_000)));
+        ScheduleRunner.Config config = scheduleConfig(options);
         int trials = intOption(options, "--trials", 1);
         if (trials < 1 || trials > MAX_TRIALS) {
             throw new IllegalArgumentException("--trials must be between 1 and " + MAX_TRIALS);
@@ -169,6 +175,52 @@ public final class Main {
         String fault = schedule.arms().isEmpty() ? "none" : schedule.arms().stream()
                 .map(dev.stateverdict.core.schedule.Step::describe).collect(java.util.stream.Collectors.joining("; "));
         return summarise(TrialSummary.of(schedule.name(), fault, reports), options.get("--report"), writer, out);
+    }
+
+    private static int explore(Map<String, String> options, ReportWriter writer, PrintStream out)
+            throws IOException, InterruptedException {
+        JsonMapper json = JsonMapper.builder().build();
+        ScheduleRunner runner = new ScheduleRunner(scheduleConfig(options), ALL_RULES, json);
+        int iterations = intOption(options, "--iterations", 20);
+        if (iterations < 1 || iterations > MAX_TRIALS) {
+            throw new IllegalArgumentException("--iterations must be between 1 and " + MAX_TRIALS);
+        }
+        long seed = longOption(options, "--seed", System.currentTimeMillis() % 100_000);
+        boolean stopOnFirst = Boolean.parseBoolean(options.getOrDefault("--stop-on-first", "false"));
+        Path saveDir = Path.of(options.getOrDefault("--out", "artifacts/found"));
+
+        out.println("Exploring " + iterations + " generated schedules, seed " + seed
+                + " (rerun with --seed " + seed + " to get the same schedules)\n");
+        dev.stateverdict.core.explore.ExplorationReport report = new dev.stateverdict.core.explore.Explorer(runner::run, json)
+                .explore(seed, iterations, saveDir, stopOnFirst, out);
+        out.print(dev.stateverdict.core.explore.Explorer.toConsole(report));
+        String reportPath = options.get("--report");
+        if (reportPath != null) {
+            write(Path.of(reportPath), json.writerWithDefaultPrettyPrinter().writeValueAsString(report));
+            out.println("Report:  " + reportPath);
+        }
+        out.println("Exit code: " + report.overall().exitCode());
+        return report.overall().exitCode();
+    }
+
+    private static ScheduleRunner.Config scheduleConfig(Map<String, String> options) {
+        return new ScheduleRunner.Config(
+                URI.create(options.getOrDefault("--order-url", env("STATEVERDICT_ORDER_URL", "http://localhost:8081"))),
+                URI.create(options.getOrDefault("--payment-url", env("STATEVERDICT_PAYMENT_URL", "http://localhost:8082"))),
+                Duration.ofMillis(intOption(options, "--deadline-ms", 20_000)),
+                Duration.ofMillis(intOption(options, "--settle-ms", 2_000)));
+    }
+
+    private static long longOption(Map<String, String> options, String name, long defaultValue) {
+        String value = options.get(name);
+        if (value == null) {
+            return defaultValue;
+        }
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(name + " must be a whole number, got '" + value + "'");
+        }
     }
 
     private static int summarise(TrialSummary summary, String reportPath, ReportWriter writer, PrintStream out)

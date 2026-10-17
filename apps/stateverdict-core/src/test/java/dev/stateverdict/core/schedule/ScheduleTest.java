@@ -51,6 +51,14 @@ class ScheduleTest {
     }
 
     @Test
+    void aHoldMustBeAwaitedBeforeItIsReleased() {
+        assertThat(schedule(HOLD_COMPLETION, PLACE, RELEASE_ORDER).problems())
+                .anyMatch(p -> p.contains("needs an earlier AWAIT_HELD"));
+        assertThat(schedule(HOLD_COMPLETION, PLACE, CANCEL, AWAIT_COMPLETION, RELEASE_ORDER).isValid()).isTrue();
+        assertThat(schedule(HOLD_COMPLETION, PLACE, RELEASE_ORDER, AWAIT_COMPLETION, RELEASE_ORDER).isValid()).isFalse();
+    }
+
+    @Test
     void awaitingAHeldMessageNeedsAMatchingHold() {
         assertThat(schedule(PLACE, AWAIT_COMPLETION).problems()).anyMatch(p -> p.contains("AWAIT_HELD count"));
         Step wrongTopic = new Step.AwaitHeld(Service.ORDER, "payment.requested", 1);
