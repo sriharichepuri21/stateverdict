@@ -113,3 +113,37 @@ jobs:
       - name: Stop the stack
         if: always()
         run: docker compose -f infrastructure/compose/docker-compose.yml down -v
+
+  one-command-demo:
+    name: One-command demo (Docker only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - name: Run scripts/demo.sh exactly as a new developer would
+        run: |
+          set -o pipefail
+          mkdir -p artifacts
+          scripts/demo.sh 2>&1 | tee artifacts/demo-transcript.txt
+      - name: Publish the transcript to the job summary
+        if: always()
+        run: |
+          {
+            echo '### scripts/demo.sh transcript'
+            echo '```'
+            cat artifacts/demo-transcript.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Also as annotations, so the key output is readable from the run page and API.
+          encode() { python3 -c 'import sys; print(sys.stdin.read().replace("%","%25").replace("\r","").replace("\n","%0A"))'; }
+          step2=$(sed -n '/^2\/4/,/^Exit code/p' artifacts/demo-transcript.txt | grep -v '^=*$' | head -40 | encode)
+          echo "::notice title=Demo step 2 output::${step2}"
+          summary=$(sed -n '/^Summary/,$p' artifacts/demo-transcript.txt | grep -v '^=*$' | encode)
+          echo "::notice title=Demo summary::${summary}"
+      - name: Upload demo reports
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: demo-reports
+          path: artifacts/
+          if-no-files-found: ignore
