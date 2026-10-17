@@ -24,6 +24,7 @@ class NaiveCompletionFlowTest extends OrderFlowTestSupport {
 
         awaitStatus(order.id(), Order.CONFIRMED);
         assertThat(order(order.id()).cancelRequestedAt()).isNotNull();
+        assertThat(refundRequestsFor(order.id(), java.time.Duration.ofSeconds(3))).isEmpty();
     }
 
     @Test

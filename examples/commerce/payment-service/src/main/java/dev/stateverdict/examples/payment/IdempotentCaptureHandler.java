@@ -54,16 +54,20 @@ public class IdempotentCaptureHandler implements CaptureHandler {
             captureWithoutAtomicClaim(event, correlationId);
             return;
         }
-        transaction.executeWithoutResult(status -> {
+        // Decide and record inside the transaction; publish only after it has committed, so the order
+        // service (and anything it triggers, such as a refund) never acts on a capture that is not yet
+        // visible. If publishing then fails, the capture exists without its event: a documented dual
+        // write that a transactional outbox would close.
+        String outcome = transaction.execute(status -> {
             int claimed = jdbc.sql("INSERT INTO processed_events (event_id) VALUES (:eventId) ON CONFLICT DO NOTHING")
                     .param("eventId", event.eventId())
                     .update();
             if (claimed == 0) {
                 log.info("duplicate payment.requested ignored orderId={} eventId={}", event.orderId(), event.eventId());
-                return;
+                return null;
             }
-            String outcome = decision.decide(event.amountCents());
-            if (PaymentCompleted.CAPTURED.equals(outcome)) {
+            String decided = decision.decide(event.amountCents());
+            if (PaymentCompleted.CAPTURED.equals(decided)) {
                 if (mutations.active("M06")) {
                     log.warn("M06: capture write skipped for order {}, CAPTURED will still be published", event.orderId());
                 } else {
@@ -74,12 +78,15 @@ public class IdempotentCaptureHandler implements CaptureHandler {
             } else {
                 log.info("payment declined orderId={} eventId={}", event.orderId(), event.eventId());
             }
-            // Published once per business event; a skipped duplicate publishes nothing.
-            events.completed(event, outcome, correlationId);
-            if (mutations.active("C03")) {
-                events.completed(event, outcome, correlationId); // harmless: consumers must tolerate duplicates
-            }
+            return decided;
         });
+        if (outcome == null) {
+            return; // a skipped duplicate publishes nothing
+        }
+        events.completed(event, outcome, correlationId);
+        if (mutations.active("C03")) {
+            events.completed(event, outcome, correlationId); // harmless: consumers must tolerate duplicates
+        }
     }
 
     /**

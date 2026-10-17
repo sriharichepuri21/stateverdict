@@ -11,7 +11,8 @@ public interface CompletionHandler {
 
     String PROPERTY = "order.completion.handler";
 
-    void apply(PaymentCompleted event);
+    /** @param correlationId the run id of the consumed record, copied to any event this publishes */
+    void apply(PaymentCompleted event, String correlationId);
 
     static String targetStatus(PaymentCompleted event) {
         return PaymentCompleted.CAPTURED.equals(event.outcome()) ? Order.CONFIRMED : Order.CANCELLED;

@@ -45,6 +45,31 @@ class GuardedCompletionFlowTest extends OrderFlowTestSupport {
     }
 
     @Test
+    void aPaymentCapturedForACancelledOrderRequestsARefundCarryingTheRunId() throws Exception {
+        Order order = placeOrder();
+        assertThat(cancel(order.id()).statusCode()).isEqualTo(200);
+
+        publishOutcome(order.id(), PaymentCompleted.CAPTURED, "run-refund");
+
+        var records = refundRequestsFor(order.id(), java.time.Duration.ofSeconds(10));
+        assertThat(records).singleElement().satisfies(record -> {
+            assertThat(new String(record.headers().lastHeader("correlation-id").value(),
+                    java.nio.charset.StandardCharsets.UTF_8)).isEqualTo("run-refund");
+            assertThat(json.readValue(record.value(), RefundRequested.class).orderId()).isEqualTo(order.id());
+        });
+    }
+
+    @Test
+    void aConfirmedOrderRequestsNoRefund() throws Exception {
+        Order order = placeOrder();
+
+        publishOutcome(order.id(), PaymentCompleted.CAPTURED);
+        awaitStatus(order.id(), Order.CONFIRMED);
+
+        assertThat(refundRequestsFor(order.id(), java.time.Duration.ofSeconds(3))).isEmpty();
+    }
+
+    @Test
     void onlyAPendingOrderCanBeCancelled() throws Exception {
         Order confirmed = placeOrder();
         publishOutcome(confirmed.id(), PaymentCompleted.CAPTURED);

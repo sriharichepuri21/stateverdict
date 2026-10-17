@@ -15,6 +15,7 @@ public class KafkaTopicsConfig {
 
     public static final String PAYMENT_REQUESTED = "payment.requested";
     public static final String PAYMENT_COMPLETED = "payment.completed";
+    public static final String REFUND_REQUESTED = "refund.requested";
 
     @Bean
     NewTopic paymentRequestedTopic() {
@@ -24,5 +25,10 @@ public class KafkaTopicsConfig {
     @Bean
     NewTopic paymentCompletedTopic() {
         return TopicBuilder.name(PAYMENT_COMPLETED).partitions(1).replicas(1).build();
+    }
+
+    @Bean
+    NewTopic refundRequestedTopic() {
+        return TopicBuilder.name(REFUND_REQUESTED).partitions(1).replicas(1).build();
     }
 }
