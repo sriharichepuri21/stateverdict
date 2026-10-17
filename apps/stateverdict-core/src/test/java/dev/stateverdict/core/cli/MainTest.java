@@ -47,6 +47,13 @@ class MainTest {
     }
 
     @Test
+    void exploreValidatesItsOptions() {
+        assertThat(run("explore", "--iterations", "0")).isEqualTo(Main.USAGE_ERROR);
+        assertThat(run("explore", "--seed", "abc")).isEqualTo(Main.USAGE_ERROR);
+        assertThat(run("explore", "--colour", "blue")).isEqualTo(Main.USAGE_ERROR);
+    }
+
+    @Test
     void missingReportFileForReplayIsAnError() {
         assertThat(run("replay-evidence", "does-not-exist.json")).isEqualTo(Main.USAGE_ERROR);
     }

@@ -15,6 +15,9 @@ import java.util.Objects;
  *   <li>{@code AWAIT_HELD} only for a service/topic with enough {@code HOLD}s armed, after
  *       {@code PLACE_ORDER}</li>
  *   <li>every {@code HOLD} is followed by a {@code RELEASE_ALL} for its service, so the run can finish</li>
+ *   <li>a {@code RELEASE_ALL} comes after an {@code AWAIT_HELD} for every {@code HOLD} armed on that
+ *       service. Otherwise the release can run before the message has even arrived, release nothing,
+ *       and leave the message held forever: a schedule whose outcome depends on timing</li>
  * </ul>
  * These are the constraints the explorer generates within and the shrinker must preserve.
  */
@@ -83,6 +86,12 @@ public record Schedule(String name, List<Step> steps) {
                     if (placeIndex < 0) {
                         problems.add(at + "RELEASE_ALL must come after PLACE_ORDER");
                     }
+                    for (Step.Arm hold : holdsOn(release.service())) {
+                        if (!awaitedBefore(hold.service(), hold.topic(), i)) {
+                            problems.add(at + "needs an earlier AWAIT_HELD for the HOLD on " + hold.topic()
+                                    + ", or it may run before the message is held");
+                        }
+                    }
                 }
             }
         }
@@ -111,6 +120,18 @@ public record Schedule(String name, List<Step> steps) {
                 .filter(arm -> arm.service() == service && Objects.equals(arm.topic(), topic)
                         && arm.fault() != null && Fault.HOLD.equals(arm.fault().type()))
                 .count();
+    }
+
+    private List<Step.Arm> holdsOn(Service service) {
+        return arms().stream()
+                .filter(arm -> arm.service() == service && arm.fault() != null && Fault.HOLD.equals(arm.fault().type()))
+                .toList();
+    }
+
+    private boolean awaitedBefore(Service service, String topic, int before) {
+        return steps.subList(0, before).stream()
+                .anyMatch(step -> step instanceof Step.AwaitHeld await && await.service() == service
+                        && Objects.equals(await.topic(), topic));
     }
 
     private boolean releasedLater(Service service, int after) {

@@ -4,10 +4,10 @@ Update this file at the end of every working session (spec section 12, "Session 
 
 ## Current state
 
-- **Branch:** `feat/schedules`
-- **Phase:** Exploration phase, PR 2 of 4: schedules and SV-003
-- **Last green command:** CI run 38990570147 on PR #10: 113 tests; cancel race naive FAIL 10/10 (SV-003), fixed PASS 10/10; all baselines PASS 10/10
-- **Last failing command:** CI run 38946344615: idempotent trials ERROR 10/10 because trials started before the restarted service was ready; fixed with `scripts/wait-healthy.sh`
+- **Branch:** `feat/explorer`
+- **Phase:** Exploration phase, PR 3 of 4: explorer (gate 2)
+- **Last green command:** CI run 38997158713 on PR #11: 126 tests; explore seed 42 × 60: naive FAIL 24 (SV-002, SV-003), fixed PASS 60
+- **Last failing command:** CI run 38992685990: 6 INCONCLUSIVE per campaign because generated schedules released holds before the message arrived; fixed in validation and generator
 
 ## Spike progress
 
@@ -26,8 +26,8 @@ Update this file at the end of every working session (spec section 12, "Session 
 | # | PR | Status | Evidence |
 |---|----|--------|----------|
 | 1 | Second event flow: `payment.completed`, customer cancellation, naive/guarded completion handlers | Done | PR #9 merged |
-| 2 | Schedules: multi-step runs across both services, rule SV-003 | Done (awaiting merge) | PR #10: cancel race FAIL 10/10 naive, PASS 10/10 fixed |
-| 3 | Explorer: seeded generation of valid schedules (gate 2) | Not started | |
+| 2 | Schedules: multi-step runs across both services, rule SV-003 | Done | PR #10 merged |
+| 3 | Explorer: seeded generation of valid schedules (gate 2) | Done (awaiting merge) | PR #11: gate 2 met; `docs/results/exploration.md` |
 | 4 | Shrinker: dependency-aware reduction confirmed by repeated trials (gate 3) | Not started | |
 
 ## Active blocker
@@ -36,7 +36,7 @@ None.
 
 ## Next action
 
-Merge PR #10, then PR 3: explorer that generates valid schedules from a seed and searches for a violation (gate 2).
+Merge PR #11, then PR 4: shrinker. Reduce each finding to a locally minimal schedule and measure reproduction with repeated trials; expect timing-dependent findings (no-fault cancel) to reproduce less than 10/10.
 
 ## Open questions (spec appendix B)
 
