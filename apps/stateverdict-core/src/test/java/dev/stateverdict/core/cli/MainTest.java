@@ -54,6 +54,12 @@ class MainTest {
     }
 
     @Test
+    void shrinkValidatesItsInputs() {
+        assertThat(run("shrink", "does-not-exist.json")).isEqualTo(Main.USAGE_ERROR);
+        assertThat(run("shrink", "../../scenarios/checkout-baseline.json", "--trials", "0")).isEqualTo(Main.USAGE_ERROR);
+    }
+
+    @Test
     void missingReportFileForReplayIsAnError() {
         assertThat(run("replay-evidence", "does-not-exist.json")).isEqualTo(Main.USAGE_ERROR);
     }
