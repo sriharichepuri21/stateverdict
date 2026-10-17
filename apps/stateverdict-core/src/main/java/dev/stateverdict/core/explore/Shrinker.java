@@ -2,7 +2,6 @@ package dev.stateverdict.core.explore;
 
 import dev.stateverdict.core.report.RunReport;
 import dev.stateverdict.core.rules.RuleResult;
-import dev.stateverdict.core.schedule.Schedule;
 import dev.stateverdict.core.verdict.EvaluationStatus;
 import java.io.PrintStream;
 import java.time.Clock;
@@ -17,7 +16,7 @@ import java.util.Set;
  * Reduces a failing schedule to a <em>locally minimal</em> one that still fails.
  *
  * <h2>Algorithm</h2>
- * Greedy one-step delta debugging over {@link Reductions}: try each candidate reduction, keep the
+ * Greedy one-step delta debugging over the space's reductions ({@link ScheduleSpace#reductions}): try each candidate reduction, keep the
  * first one that still fails, and start again from the smaller schedule, until no single reduction
  * still fails. The result is 1-minimal: removing or simplifying any one more thing makes it pass.
  * It is not guaranteed to be the globally smallest failing schedule.
@@ -29,22 +28,24 @@ import java.util.Set;
  * {@code confirmTrials} runs, and both rates are reported, so a reduction that traded determinism for
  * size is visible rather than hidden.
  */
-public final class Shrinker {
+public final class Shrinker<S> {
 
-    private final ScheduleExecutor executor;
+    private final ScheduleSpace<S> space;
+    private final ScheduleExecutor<S> executor;
     private final int acceptanceTrials;
     private final int confirmTrials;
     private final Clock clock;
     private int runs;
 
-    public Shrinker(ScheduleExecutor executor, int acceptanceTrials, int confirmTrials) {
-        this(executor, acceptanceTrials, confirmTrials, Clock.systemUTC());
+    public Shrinker(ScheduleSpace<S> space, ScheduleExecutor<S> executor, int acceptanceTrials, int confirmTrials) {
+        this(space, executor, acceptanceTrials, confirmTrials, Clock.systemUTC());
     }
 
-    Shrinker(ScheduleExecutor executor, int acceptanceTrials, int confirmTrials, Clock clock) {
+    Shrinker(ScheduleSpace<S> space, ScheduleExecutor<S> executor, int acceptanceTrials, int confirmTrials, Clock clock) {
         if (acceptanceTrials < 1 || confirmTrials < 1) {
             throw new IllegalArgumentException("trial counts must be at least 1");
         }
+        this.space = space;
         this.executor = executor;
         this.acceptanceTrials = acceptanceTrials;
         this.confirmTrials = confirmTrials;
@@ -55,10 +56,11 @@ public final class Shrinker {
      * @param targetRules rules a run must violate to count as failing; if empty, the rules the
      *                    original violates during its confirmation runs are used
      */
-    public ShrinkReport shrink(Schedule original, List<String> targetRules, PrintStream progress)
+    public ShrinkReport<S> shrink(S original, List<String> targetRules, PrintStream progress)
             throws InterruptedException {
-        if (!original.isValid()) {
-            throw new IllegalArgumentException("cannot shrink an invalid schedule: " + original.problems());
+        List<String> problems = space.problems(original);
+        if (!problems.isEmpty()) {
+            throw new IllegalArgumentException("cannot shrink an invalid schedule: " + problems);
         }
         Instant started = clock.instant();
         runs = 0;
@@ -81,18 +83,18 @@ public final class Shrinker {
         if (targets.isEmpty() || originalFailures < confirmTrials) {
             say(progress, "not shrinking: the original failed " + originalFailures + "/" + confirmTrials
                     + ", so a smaller failing schedule could not be told apart from luck");
-            return new ShrinkReport(ShrinkReport.Status.UNRELIABLE, List.copyOf(targets), original,
+            return new ShrinkReport<>(ShrinkReport.Status.UNRELIABLE, List.copyOf(targets), original,
                     originalFailures, original, originalFailures, confirmTrials, acceptanceTrials, List.of(), 0, runs,
                     Duration.between(started, clock.instant()).toMillis());
         }
 
-        Schedule current = original;
+        S current = original;
         List<String> accepted = new ArrayList<>();
         int tried = 0;
         boolean reduced = true;
         while (reduced) {
             reduced = false;
-            for (Reductions.Candidate candidate : Reductions.of(current)) {
+            for (ScheduleSpace.Candidate<S> candidate : space.reductions(current)) {
                 tried++;
                 int failures = failures(candidate.schedule(), targets, acceptanceTrials, true);
                 boolean keep = failures == acceptanceTrials;
@@ -109,8 +111,8 @@ public final class Shrinker {
 
         int minimizedFailures = failures(current, targets, confirmTrials, false);
         say(progress, "minimized: " + describe(current) + " -> fails " + minimizedFailures + "/" + confirmTrials);
-        return new ShrinkReport(ShrinkReport.Status.MINIMIZED, List.copyOf(targets), original, originalFailures,
-                current.withSteps(original.name() + "-min", current.steps()), minimizedFailures, confirmTrials,
+        return new ShrinkReport<>(ShrinkReport.Status.MINIMIZED, List.copyOf(targets), original, originalFailures,
+                space.renamed(current, space.name(original) + "-min"), minimizedFailures, confirmTrials,
                 acceptanceTrials, accepted, tried, runs, Duration.between(started, clock.instant()).toMillis());
     }
 
@@ -119,7 +121,7 @@ public final class Shrinker {
      *
      * @param stopOnPass stop at the first passing run (enough to reject a candidate, saves time)
      */
-    private int failures(Schedule schedule, Set<String> targets, int trials, boolean stopOnPass)
+    private int failures(S schedule, Set<String> targets, int trials, boolean stopOnPass)
             throws InterruptedException {
         int failures = 0;
         for (int i = 0; i < trials; i++) {
@@ -145,9 +147,9 @@ public final class Shrinker {
         return violated.stream().anyMatch(targets::contains);
     }
 
-    private static String describe(Schedule schedule) {
-        return Explorer.summary(schedule) + " [" + schedule.steps().size() + " steps, "
-                + Reductions.interventions(schedule) + " interventions]";
+    private String describe(S schedule) {
+        return space.summary(schedule) + " [" + space.steps(schedule).size() + " steps, "
+                + space.interventions(schedule) + " interventions]";
     }
 
     private static void say(PrintStream progress, String line) {
@@ -157,14 +159,14 @@ public final class Shrinker {
     }
 
     /** Human-readable report. */
-    public static String toConsole(ShrinkReport report) {
+    public String toConsole(ShrinkReport<S> report) {
         StringBuilder out = new StringBuilder("\nShrink result: ").append(report.status()).append("\n");
         out.append("Target rules: ").append(String.join(", ", report.targetRules())).append("\n\n");
-        out.append("Original (").append(Reductions.interventions(report.original())).append(" interventions, fails ")
+        out.append("Original (").append(space.interventions(report.original())).append(" interventions, fails ")
                 .append(report.originalFailures()).append('/').append(report.confirmTrials()).append("):\n");
         steps(out, report.original());
         if (report.status() == ShrinkReport.Status.MINIMIZED) {
-            out.append("\nLocally minimal (").append(Reductions.interventions(report.minimized()))
+            out.append("\nLocally minimal (").append(space.interventions(report.minimized()))
                     .append(" interventions, fails ").append(report.minimizedFailures()).append('/')
                     .append(report.confirmTrials()).append("):\n");
             steps(out, report.minimized());
@@ -179,9 +181,10 @@ public final class Shrinker {
         return out.toString();
     }
 
-    private static void steps(StringBuilder out, Schedule schedule) {
-        for (int i = 0; i < schedule.steps().size(); i++) {
-            out.append("  ").append(i + 1).append(". ").append(schedule.steps().get(i).describe()).append("\n");
+    private void steps(StringBuilder out, S schedule) {
+        List<String> steps = space.steps(schedule);
+        for (int i = 0; i < steps.size(); i++) {
+            out.append("  ").append(i + 1).append(". ").append(steps.get(i)).append("\n");
         }
     }
 }
