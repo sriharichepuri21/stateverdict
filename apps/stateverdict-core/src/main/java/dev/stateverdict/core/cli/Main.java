@@ -10,6 +10,8 @@ import dev.stateverdict.core.rules.RefundForCancelledCaptureRule;
 import dev.stateverdict.core.rules.Rule;
 import dev.stateverdict.core.runner.DuplicateDeliveryScenario;
 import dev.stateverdict.core.runner.ScheduleRunner;
+import dev.stateverdict.core.saga.SagaRunner;
+import dev.stateverdict.core.saga.SagaSchedule;
 import dev.stateverdict.core.schedule.Schedule;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -33,6 +35,8 @@ import tools.jackson.databind.json.JsonMapper;
  *                  [--settle-ms MS] [--trials N] [--report PATH]
  * stateverdict explore [--iterations N] [--seed S] [--out DIR] [--stop-on-first true] [--report PATH] ...
  * stateverdict shrink SCHEDULE.json [--trials K] [--confirm N] [--rules R1,R2] [--out PATH] [--report PATH] ...
+ * stateverdict run-saga SCHEDULE.json [--order-url URL] [--payment-url URL] [--stock-url URL]
+ *                  [--deadline-ms MS] [--trials N] [--report PATH]
  * stateverdict replay-evidence REPORT.json
  * </pre>
  *
@@ -66,6 +70,10 @@ public final class Main {
                 --trials K (default 3: runs per candidate, all must fail)  --confirm N (default 10)
                 --rules SV-003 (default: rules the original violates)  --out PATH  --report PATH
                 Exit: 1 minimized and fails N/N, 2 not reliably reproducible, 0 does not fail at all
+              stateverdict run-saga SCHEDULE.json [options]
+                Run a schedule against the external saga target (targets/piomin-saga) and evaluate
+                SAGA-1 to SAGA-3. --order-url (default $STATEVERDICT_TARGET_ORDER_URL or http://localhost:8091)
+                --payment-url (8092)  --stock-url (8093)  --deadline-ms (default 25000)  --trials  --report
               stateverdict replay-evidence REPORT.json
                 Re-evaluate the rules on a saved report's evidence. Contacts no service.
 
@@ -80,6 +88,11 @@ public final class Main {
     private static final List<Rule> ALL_RULES = List.of(
             new ConfirmedOrderHasCaptureRule(), new CaptureUniquenessRule(), new CancelledOrderNotConfirmedRule(),
             new RefundForCancelledCaptureRule());
+    /** Rules replay may need: every rule of every runner. */
+    private static final List<Rule> REPLAYABLE_RULES = java.util.stream.Stream
+            .concat(ALL_RULES.stream(), SagaRunner.rules().stream()).toList();
+    private static final java.util.Set<String> SAGA_OPTIONS = java.util.Set.of("--order-url", "--payment-url",
+            "--stock-url", "--deadline-ms", "--trials", "--report");
     private static final java.util.Set<String> RUN_OPTIONS =
             java.util.Set.of("--order-url", "--payment-url", "--copies", "--deadline-ms", "--settle-ms", "--trials", "--report");
     private static final java.util.Set<String> EXPLORE_OPTIONS = java.util.Set.of("--order-url", "--payment-url",
@@ -107,6 +120,9 @@ public final class Main {
             }
             if (args.length >= 2 && args[0].equals("run-schedule")) {
                 return runSchedule(Path.of(args[1]), options(args, 2, SCHEDULE_OPTIONS), writer, out);
+            }
+            if (args.length >= 2 && args[0].equals("run-saga")) {
+                return runSaga(Path.of(args[1]), options(args, 2, SAGA_OPTIONS), writer, out);
             }
             if (args.length == 2 && args[0].equals("replay-evidence")) {
                 return replay(Path.of(args[1]), writer, out);
@@ -180,6 +196,53 @@ public final class Main {
         }
         String fault = schedule.arms().isEmpty() ? "none" : schedule.arms().stream()
                 .map(dev.stateverdict.core.schedule.Step::describe).collect(java.util.stream.Collectors.joining("; "));
+        return summarise(TrialSummary.of(schedule.name(), fault, reports), options.get("--report"), writer, out);
+    }
+
+    private static int runSaga(Path schedulePath, Map<String, String> options, ReportWriter writer, PrintStream out)
+            throws IOException, InterruptedException {
+        JsonMapper json = JsonMapper.builder().build();
+        SagaSchedule schedule;
+        try {
+            schedule = json.readValue(Files.readString(schedulePath), SagaSchedule.class);
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("cannot read saga schedule " + schedulePath + ": " + e.getMessage());
+        }
+        List<String> problems = schedule.problems();
+        if (!problems.isEmpty()) {
+            throw new IllegalArgumentException("invalid saga schedule " + schedulePath + ": " + String.join("; ", problems));
+        }
+        SagaRunner.Config defaults = SagaRunner.Config.defaults(
+                URI.create(options.getOrDefault("--order-url", env("STATEVERDICT_TARGET_ORDER_URL", "http://localhost:8091"))),
+                URI.create(options.getOrDefault("--payment-url", env("STATEVERDICT_TARGET_PAYMENT_URL", "http://localhost:8092"))),
+                URI.create(options.getOrDefault("--stock-url", env("STATEVERDICT_TARGET_STOCK_URL", "http://localhost:8093"))));
+        SagaRunner.Config config = new SagaRunner.Config(defaults.orderService(), defaults.paymentService(),
+                defaults.stockService(), Duration.ofMillis(intOption(options, "--deadline-ms", 25_000)),
+                defaults.settleWindow(), defaults.eventualWindow());
+        int trials = intOption(options, "--trials", 1);
+        if (trials < 1 || trials > MAX_TRIALS) {
+            throw new IllegalArgumentException("--trials must be between 1 and " + MAX_TRIALS);
+        }
+        SagaRunner runner = new SagaRunner(config, SagaRunner.rules(), json);
+        out.println("Saga schedule: " + schedule.name());
+        for (SagaSchedule.Arm arm : schedule.arms()) {
+            out.println("  " + arm.describe());
+        }
+        SagaSchedule.Order order = schedule.order();
+        out.println("  place order: price " + order.price() + " (customer funds " + order.funds() + "), count "
+                + order.count() + " (product stock " + order.stock() + ")");
+        out.println();
+        if (trials == 1) {
+            return finish(runner.run(schedule), options.get("--report"), writer, out);
+        }
+        List<RunReport> reports = new java.util.ArrayList<>();
+        for (int trial = 1; trial <= trials; trial++) {
+            RunReport report = runner.run(schedule);
+            out.println("trial " + trial + "/" + trials + ": " + report.verdict() + " (" + report.runId() + ")");
+            reports.add(report);
+        }
+        String fault = schedule.arms().isEmpty() ? "none" : schedule.arms().stream()
+                .map(SagaSchedule.Arm::describe).collect(java.util.stream.Collectors.joining("; "));
         return summarise(TrialSummary.of(schedule.name(), fault, reports), options.get("--report"), writer, out);
     }
 
@@ -295,7 +358,7 @@ public final class Main {
     private static int replay(Path reportPath, ReportWriter writer, PrintStream out) throws IOException {
         RunReport saved = writer.fromJson(Files.readString(reportPath));
         java.util.Set<String> used = saved.ruleResults().stream().map(r -> r.ruleId()).collect(java.util.stream.Collectors.toSet());
-        List<Rule> rules = ALL_RULES.stream().filter(rule -> used.contains(rule.id())).toList();
+        List<Rule> rules = REPLAYABLE_RULES.stream().filter(rule -> used.contains(rule.id())).toList();
         RunReport replayed = DuplicateDeliveryScenario.replay(saved, rules, Clock.systemUTC());
         return finish(replayed, null, writer, out);
     }
