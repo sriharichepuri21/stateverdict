@@ -24,4 +24,10 @@ echo "committed captures for ${order_id}: ${count}"
 if [ "${count}" -ne 1 ]; then
   echo "FAIL: expected exactly 1 capture"; exit 1
 fi
-echo "OK: exactly one capture"
+
+status=$(curl -fsS "${ORDER_URL}/orders/${order_id}" | jq -r '.status')
+echo "order status: ${status}"
+if [ "${status}" != "CONFIRMED" ]; then
+  echo "FAIL: expected the order to be CONFIRMED after payment.completed"; exit 1
+fi
+echo "OK: exactly one capture and the order is CONFIRMED"

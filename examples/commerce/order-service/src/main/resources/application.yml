@@ -10,6 +10,9 @@ spring:
     password: ${ORDER_DB_PASSWORD:orders}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    consumer:
+      group-id: order-service
+      auto-offset-reset: earliest
 
 management:
   endpoints:
@@ -19,3 +22,15 @@ management:
   endpoint:
     health:
       show-details: always
+
+# Test-mode dispatch adapter (spec section 3). "direct" is production behaviour.
+# "controlled" enables fault injection and the /_stateverdict control API: never in production.
+stateverdict:
+  dispatch:
+    mode: ${STATEVERDICT_DISPATCH_MODE:direct}
+
+# How payment outcomes are applied: "guarded" (default, correct) or "naive" (deliberately
+# overwrites cancelled orders; for demonstrating StateVerdict only).
+order:
+  completion:
+    handler: ${ORDER_COMPLETION_HANDLER:guarded}

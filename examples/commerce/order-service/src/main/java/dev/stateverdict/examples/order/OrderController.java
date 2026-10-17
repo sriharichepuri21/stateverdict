@@ -57,6 +57,18 @@ public class OrderController {
         return ResponseEntity.of(orders.findById(id));
     }
 
+    /**
+     * Customer cancellation. 200 with the cancelled order if it was PENDING; 409 with the current
+     * order if it already moved on (for example, it is CONFIRMED); 404 if it does not exist.
+     */
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<Order> cancel(@PathVariable UUID id) {
+        boolean cancelled = orders.cancelIfPending(id);
+        return orders.findById(id)
+                .map(order -> cancelled ? ResponseEntity.ok(order) : ResponseEntity.status(HttpStatus.CONFLICT).body(order))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     ResponseEntity<String> badRequest(IllegalArgumentException e) {
         return ResponseEntity.badRequest().body(e.getMessage());
