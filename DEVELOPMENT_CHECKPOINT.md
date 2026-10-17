@@ -4,10 +4,10 @@ Update this file at the end of every working session (spec section 12, "Session 
 
 ## Current state
 
-- **Branch:** `feat/refunds`
-- **Phase:** Closing evaluation gaps: refunds and SV-004 (M04)
-- **Last green command:** CI 39048156582 + evaluation 39048156513 on PR #15: 159 tests; fixed explore PASS 60; StateVerdict 5/6 defects, 0/3 false alarms
-- **Last failing command:** PR #15 first run: a test stub short-circuited its lookup counter, and the shrink selection silently matched nothing; both fixed
+- **Branch:** `feat/concurrent-delivery`
+- **Phase:** Gate 4 complete: 6/6 defects, 0/3 false alarms
+- **Last green command:** CI 39056506235 + evaluation 39056506247 on PR #16: 163 tests; StateVerdict 6/6 defects, 0/3 false alarms; M03 concurrent FAIL 10/10, sequential PASS 10/10
+- **Last failing command:** none on PR #16
 
 ## Spike progress
 
@@ -36,8 +36,8 @@ Update this file at the end of every working session (spec section 12, "Session 
 |---|----|--------|----------|
 | 1 | Defect corpus (M01–M06, C01–C03) and SV-001 | Done | PR #13 merged |
 | 2 | Head-to-head in CI | Done | PR #14 merged |
-| 3 | Refund flow, SV-004, cancel-after-confirmed (closes M04) | Done (awaiting merge) | PR #15: 5/6 defects, 0/3 false alarms |
-| 4 | Concurrent delivery (closes M03) | Not started | |
+| 3 | Refund flow, SV-004, cancel-after-confirmed (closes M04) | Done | PR #15 merged |
+| 4 | Concurrent delivery (closes M03) | Done (awaiting merge) | PR #16: 6/6 defects, 0/3 false alarms |
 
 ## Active blocker
 
@@ -45,7 +45,7 @@ None.
 
 ## Next action
 
-Merge PR #15, then a DUPLICATE_CONCURRENT intervention in the dispatcher and generator; rerun the evaluation, expect M03 caught.
+Merge PR #16. Then candidates: a README/demo pass for readers new to the project, and validation against an external open-source service.
 
 ## Open questions (spec appendix B)
 

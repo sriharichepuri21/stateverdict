@@ -5,6 +5,11 @@
 - **Corpus and predictions:** [corpus.md](corpus.md), written before this measurement
 - **Per configuration:** `scripts/evaluate-config.sh`, one CI job each, in parallel
 
+> **Update (PR #16):** concurrent duplicate delivery was added, and the evaluation reran (run
+> [39056506247](https://github.com/sriharichepuri21/stateverdict/actions/runs/39056506247)).
+> **M03 is now caught** (SV-002): StateVerdict stands at **6/6 defects, 0/3 false alarms**. See
+> [After concurrent delivery](#after-concurrent-delivery).
+>
 > **Update (PR #15):** SV-004 and the "cancel after confirmed" customer behaviour were added, and the
 > evaluation reran (run [39048156513](https://github.com/sriharichepuri21/stateverdict/actions/runs/39048156513)).
 > **M04 is now caught** (SV-004), so StateVerdict stands at **5/6 defects, 0/3 false alarms**. See
@@ -105,3 +110,50 @@ the order is CONFIRMED*. The conventional suite grew to 37 tests with the refund
 
 M04 was caught by generated schedules, not by a hand-written scenario aimed at it: no example schedule
 was added for it. M03 (concurrency) remains the one structural miss.
+
+## After concurrent delivery
+
+PR #16 closed the last gap. The dispatcher gained `DUPLICATE_CONCURRENT`: the copies run on separate
+threads and a start gate releases them together, so the handlers overlap. The generator can arm it
+on either topic. The conventional suite gained one test (38) for the new control API type, which
+runs against the naive handler and so does not change any detection.
+
+| Config | Conventional suite | StateVerdict |
+|---|---|---|
+| baseline, C01, C02 | quiet | quiet |
+| C03 | **false alarm** (3/38) | quiet |
+| M01 | caught | caught: SV-002 |
+| M02 | caught | caught: SV-003, SV-004 |
+| M03 | caught | **caught: SV-002** (was missed) |
+| M04 | caught | caught: SV-004 |
+| M05 | caught | caught: SV-001 |
+| M06 | caught | caught: SV-001 |
+
+| | Defects caught | False alarms |
+|---|---|---|
+| Conventional suite (38 tests) | 6 / 6 | 1 / 3 |
+| StateVerdict (4 rules, generated schedules) | **6 / 6** | **0 / 3** |
+
+**Is it the concurrency that catches M03?** Measured against M03, 10 clean-state trials each:
+
+| Schedule | Result |
+|---|---|
+| `duplicate-payment-request` (two copies, one after the other) | PASS 10/10 |
+| `concurrent-duplicate-payment-request` (two copies at the same moment) | FAIL 10/10 |
+
+Same message, same number of copies; only the timing differs. The shrinker agrees: given a generated
+M03 finding, it reduced it to *ARM DUPLICATE_CONCURRENT x2 on payment.requested, place the order*.
+Its last candidate, the same duplicate delivered sequentially, no longer failed, so it kept the
+concurrency. That minimal schedule failed **8 of 10** confirmation runs. This is a real race, so
+it is not certain. The hand-written schedule's 10/10 in the same job is a better estimate than the
+shrinker's 8/10, but neither is 100% guaranteed.
+
+### What this does and does not show
+
+- M03 was caught by generated schedules. The prediction was revised to "detect" before this run
+  ([corpus.md](corpus.md)), because the change was made specifically to close it. It is a closed
+  gap, not a blind discovery.
+- The race is modelled at the consumer, as two handler invocations at once. It is not two service
+  instances in a consumer group competing for a partition (ADR-002).
+- The conventional suite also catches M03, with a test written for it. The difference is that
+  StateVerdict reached it without knowing the code, and raised no false alarm on C03.

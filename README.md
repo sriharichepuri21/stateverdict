@@ -132,14 +132,15 @@ Measured on a corpus of 6 deliberate defects and 3 harmless changes
 
 | | Defects caught | False alarms |
 |---|---|---|
-| The services' 37 JUnit + Testcontainers tests | **6 / 6** | 1 / 3 |
-| StateVerdict (4 business rules, generated schedules) | 5 / 6 | **0 / 3** |
+| The services' 38 JUnit + Testcontainers tests | **6 / 6** | 1 / 3 |
+| StateVerdict (4 business rules, generated schedules) | **6 / 6** | **0 / 3** |
 
 The JUnit suite was written by the same person who wrote the defects, so it was aimed at them. It also
 raised a false alarm on a harmless change because three tests assert implementation details.
-StateVerdict knew nothing about the code. It first missed two defects; adding a refund rule (SV-004)
-caught the second, and the one left is a concurrency defect its dispatcher cannot produce yet (it
-delivers duplicates sequentially). They are complementary: targeted tests for
+StateVerdict knew nothing about the code. It first missed two defects, and each miss pointed at a
+real gap in the tool: no rule about refunds (closed by SV-004), and no way to deliver two copies of a
+message at the same moment (closed by `DUPLICATE_CONCURRENT`). Both were found by generated schedules,
+not by scenarios written for those defects. They are complementary: targeted tests for
 known behaviour, generated schedules plus business rules for the combinations nobody wrote a test for.
 
 ## How it works
@@ -200,7 +201,7 @@ $SV replay-evidence artifacts/dup.json                       # same verdict, no 
 $SV run checkout-duplicate-payment-request --copies 2 --trials 10
 ```
 
-Developing locally with Java 21 and Maven: `mvn -B verify` runs all 159 tests, using Testcontainers
+Developing locally with Java 21 and Maven: `mvn -B verify` runs all 163 tests, using Testcontainers
 for PostgreSQL and Kafka.
 
 ## Status and limits
@@ -209,9 +210,9 @@ The seven-step technical spike from the [specification](docs/specification/State
 is complete; see the [retrospective](docs/results/spike-retrospective.md). Since then: a second event
 flow with customer cancellation, schedules, rule SV-003, the explorer (gate 2 met) and the shrinker
 (gate 3 met). StateVerdict covers two defect classes (duplicate side effects, and an outcome
-overwriting a cancellation), with sequential delivery on a single-partition topology. Gate 4 has a
-measured head-to-head with the conventional suite, and SV-004 (refunds) closed one of the two gaps it
-found. Next: a concurrent-delivery intervention, which should catch the remaining one (M03).
+overwriting a cancellation), with sequential and concurrent duplicate delivery on a single-partition topology. Gate 4 has a
+measured head-to-head with the conventional suite; SV-004 (refunds) and concurrent duplicate delivery
+closed the two gaps it found, so StateVerdict now catches 6/6 defects with no false alarms.
 
 ## Guiding principle
 

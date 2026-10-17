@@ -62,3 +62,12 @@ and did not shrink it, which is what it is designed to do: with a 9/10 original,
 "passes" once could just be the unlucky run. The same race reached through a fault-carrying finding
 still shrank to "place, cancel" and failed 10/10 in that run. The `HOLD` schedule, which forces the
 ordering, remains the regression test.
+
+## Update: a concurrency finding keeps its concurrency (PR #16)
+
+With `DUPLICATE_CONCURRENT` available, the last simplification of a concurrent duplicate is the
+sequential duplicate. Against M03 (non-atomic idempotency), the shrinker reduced a generated finding
+to one intervention, *DUPLICATE_CONCURRENT x2 on payment.requested*, and kept it concurrent because the
+sequential candidate passed. The minimized schedule failed 8/10 confirmation runs: a race reproduced
+reliably but not with certainty, and reported as such. In the same CI run, the no-fault cancel race
+again failed 9/10 and was classified UNRELIABLE.
