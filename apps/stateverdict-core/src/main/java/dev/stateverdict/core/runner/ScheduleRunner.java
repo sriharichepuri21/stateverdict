@@ -37,8 +37,10 @@ import tools.jackson.databind.json.JsonMapper;
  *       is controlled, not left to timing.</li>
  *   <li>Completion: the order service's journal shows {@code payment.completed} delivered and neither
  *       service holds anything for the run, within {@code deliveryDeadline}. Otherwise TIMED_OUT.</li>
- *   <li>Settle window, then collect committed order state, captures and both journals as evidence.</li>
- *   <li>Evaluate the rules on that frozen evidence, derive the verdict, reset both services.</li>
+ *   <li>Settle window, then collect committed order state, captures, refunds and both journals as
+ *       evidence, and evaluate the rules. While an eventual rule (SV-004) is not yet satisfied, keep
+ *       re-observing for up to {@code eventualWindow}; safety rules are judged on the last observation.</li>
+ *   <li>Derive the verdict and reset both services.</li>
  * </ol>
  *
  * <p>A failed control call or business call StateVerdict depends on is INFRA_ERROR. A cancel answered
@@ -53,12 +55,25 @@ public final class ScheduleRunner {
     static final String PAYMENT_JOURNAL_EVIDENCE = "dispatch.journal.payment";
     static final String PAYMENT_COMPLETED = "payment.completed";
 
-    private static final Duration POLL_INTERVAL = Duration.ofMillis(100);
+    static final String REFUNDS_EVIDENCE = "payment.refunds";
 
-    public record Config(URI orderService, URI paymentService, Duration deliveryDeadline, Duration settleWindow) {
+    private static final Duration POLL_INTERVAL = Duration.ofMillis(100);
+    private static final Duration OBSERVE_INTERVAL = Duration.ofMillis(250);
+
+    /**
+     * @param eventualWindow how long, after the settle window, to keep re-observing while an eventual
+     *                       rule (such as SV-004) is not yet satisfied
+     */
+    public record Config(URI orderService, URI paymentService, Duration deliveryDeadline, Duration settleWindow,
+                         Duration eventualWindow) {
         public Config {
             Objects.requireNonNull(orderService, "orderService");
             Objects.requireNonNull(paymentService, "paymentService");
+            Objects.requireNonNull(eventualWindow, "eventualWindow");
+        }
+
+        public Config(URI orderService, URI paymentService, Duration deliveryDeadline, Duration settleWindow) {
+            this(orderService, paymentService, deliveryDeadline, settleWindow, Duration.ofSeconds(5));
         }
 
         public static Config defaults(URI orderService, URI paymentService) {
@@ -94,7 +109,7 @@ public final class ScheduleRunner {
         }
         Instant startedAt = clock.instant();
         List<String> notes = new ArrayList<>();
-        List<EvidenceRecord> evidence = new ArrayList<>();
+        List<EvidenceRecord> stepEvidence = new ArrayList<>();
         String orderId = null;
 
         ExecutionStatus execution;
@@ -105,7 +120,7 @@ public final class ScheduleRunner {
             for (Step step : schedule.steps()) {
                 switch (step) {
                     case Step.Arm arm -> arm(runId, arm);
-                    case Step.PlaceOrder place -> orderId = placeOrder(runId, place, evidence);
+                    case Step.PlaceOrder place -> orderId = placeOrder(runId, place, stepEvidence);
                     case Step.AwaitHeld await -> {
                         if (!awaitHeld(runId, await)) {
                             execution = ExecutionStatus.TIMED_OUT;
@@ -113,7 +128,14 @@ public final class ScheduleRunner {
                                     + config.deliveryDeadline().toMillis() + " ms.");
                         }
                     }
-                    case Step.Cancel ignored -> cancel(orderId, evidence);
+                    case Step.Cancel ignored -> cancel(orderId, stepEvidence);
+                    case Step.AwaitOrderStatus await -> {
+                        if (!awaitOrderStatus(orderId, await.status())) {
+                            execution = ExecutionStatus.TIMED_OUT;
+                            notes.add("Step '" + await.describe() + "' not reached within "
+                                    + config.deliveryDeadline().toMillis() + " ms.");
+                        }
+                    }
                     case Step.ReleaseAll release -> releaseAll(runId, release.service());
                 }
                 if (execution != ExecutionStatus.COMPLETED) {
@@ -131,21 +153,80 @@ public final class ScheduleRunner {
             notes.add(e.getMessage());
         }
 
-        if (orderId != null) {
-            collect(ORDER_EVIDENCE, config.orderService().resolve("/orders/" + encode(orderId)), evidence, notes);
-            collect(CAPTURES_EVIDENCE, config.paymentService().resolve("/captures?orderId=" + encode(orderId)),
-                    evidence, notes);
+        // Observe committed state, evaluate, and while an eventual rule is not yet satisfied keep
+        // re-observing within the bounded window. Safety rules are judged on the last observation, which
+        // is never earlier than it would have been without the window.
+        Instant windowEnd = clock.instant().plus(config.eventualWindow());
+        List<String> collectionNotes = new ArrayList<>();
+        List<EvidenceRecord> evidence = observe(runId, orderId, stepEvidence, collectionNotes);
+        List<RuleResult> results = evaluate(runId, evidence);
+        int observations = 1;
+        while (execution == ExecutionStatus.COMPLETED && pendingEventual(results) && clock.instant().isBefore(windowEnd)) {
+            sleep(OBSERVE_INTERVAL);
+            collectionNotes = new ArrayList<>();
+            evidence = observe(runId, orderId, stepEvidence, collectionNotes);
+            results = evaluate(runId, evidence);
+            observations++;
         }
-        collect(ORDER_JOURNAL_EVIDENCE, controlUri(Service.ORDER, runId, "/journal"), evidence, notes);
-        collect(PAYMENT_JOURNAL_EVIDENCE, controlUri(Service.PAYMENT, runId, "/journal"), evidence, notes);
-
-        EvidenceBundle bundle = new EvidenceBundle(runId, evidence);
-        List<RuleResult> results = rules.stream().map(rule -> rule.evaluate(bundle)).toList();
+        notes.addAll(collectionNotes);
+        if (observations > 1) {
+            notes.add("Eventual rules re-observed " + observations + " times within the "
+                    + config.eventualWindow().toMillis() + " ms window"
+                    + (pendingEventual(results) ? "; still not satisfied at the end." : "."));
+        }
         Verdict verdict = Verdict.derive(execution, results.stream().map(RuleResult::status).toList());
 
         cleanUp(runId, notes);
         return new RunReport(RunReport.VERSION, runId, schedule.name(), 1, describe(schedule), execution, results,
                 verdict, evidence, notes, startedAt, clock.instant());
+    }
+
+    private List<EvidenceRecord> observe(String runId, String orderId, List<EvidenceRecord> stepEvidence,
+                                         List<String> notes) throws InterruptedException {
+        List<EvidenceRecord> evidence = new ArrayList<>(stepEvidence);
+        if (orderId != null) {
+            collect(ORDER_EVIDENCE, config.orderService().resolve("/orders/" + encode(orderId)), evidence, notes);
+            collect(CAPTURES_EVIDENCE, config.paymentService().resolve("/captures?orderId=" + encode(orderId)),
+                    evidence, notes);
+            collect(REFUNDS_EVIDENCE, config.paymentService().resolve("/refunds?orderId=" + encode(orderId)),
+                    evidence, notes);
+        }
+        collect(ORDER_JOURNAL_EVIDENCE, controlUri(Service.ORDER, runId, "/journal"), evidence, notes);
+        collect(PAYMENT_JOURNAL_EVIDENCE, controlUri(Service.PAYMENT, runId, "/journal"), evidence, notes);
+        return evidence;
+    }
+
+    private List<RuleResult> evaluate(String runId, List<EvidenceRecord> evidence) {
+        EvidenceBundle bundle = new EvidenceBundle(runId, evidence);
+        return rules.stream().map(rule -> rule.evaluate(bundle)).toList();
+    }
+
+    /** True while some eventual rule is not yet SATISFIED. */
+    private boolean pendingEventual(List<RuleResult> results) {
+        for (int i = 0; i < rules.size(); i++) {
+            if (rules.get(i).eventual() && results.get(i).status() != dev.stateverdict.core.verdict.EvaluationStatus.SATISFIED) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean awaitOrderStatus(String orderId, String status) throws InterruptedException {
+        Instant deadline = clock.instant().plus(config.deliveryDeadline());
+        while (true) {
+            try {
+                HttpJson.Response order = http.get(config.orderService().resolve("/orders/" + encode(orderId)));
+                if (order.ok() && status.equals(json.readTree(order.body()).path("status").asString(""))) {
+                    return true;
+                }
+            } catch (IOException | RuntimeException e) {
+                // keep polling until the deadline
+            }
+            if (!clock.instant().isBefore(deadline)) {
+                return false;
+            }
+            sleep(POLL_INTERVAL);
+        }
     }
 
     /** The steps as plain maps for the report, with a readable description of each. */

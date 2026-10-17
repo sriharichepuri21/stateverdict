@@ -18,7 +18,8 @@ import java.util.Map;
  * that is still invalid afterwards is discarded, so the shrinker never runs an invalid schedule.
  *
  * <p>Candidates are ordered from the biggest reduction to the smallest: remove a whole fault, remove
- * the customer's cancel, then simplify a fault's parameters (fewer duplicate copies, shorter delay).
+ * the customer's cancel, stop waiting for an order status, then simplify a fault's parameters (fewer
+ * duplicate copies, shorter delay).
  */
 public final class Reductions {
 
@@ -42,6 +43,13 @@ public final class Reductions {
                 List<Step> without = new ArrayList<>(steps);
                 without.remove(i);
                 add(unique, schedule, without, "remove the customer's cancel");
+            }
+        }
+        for (int i = 0; i < steps.size(); i++) {
+            if (steps.get(i) instanceof Step.AwaitOrderStatus await) {
+                List<Step> without = new ArrayList<>(steps);
+                without.remove(i);
+                add(unique, schedule, without, "stop waiting for the order to be " + await.status());
             }
         }
         for (int i = 0; i < steps.size(); i++) {

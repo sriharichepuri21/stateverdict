@@ -53,6 +53,7 @@ class ScheduleGeneratorTest {
                 "payment.completed HOLD", "payment.completed DUPLICATE", "payment.completed DELAY",
                 "no faults", "no cancel", "cancel right after order",
                 "cancel while payment.requested held", "cancel while payment.completed held",
+                "cancel after order CONFIRMED",
                 "amount " + ScheduleGenerator.APPROVED_AMOUNT, "amount " + ScheduleGenerator.DECLINED_AMOUNT);
     }
 

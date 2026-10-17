@@ -82,6 +82,20 @@ public record Schedule(String name, List<Step> steps) {
                         problems.add(at + "only one CANCEL is allowed");
                     }
                 }
+                case Step.AwaitOrderStatus await -> {
+                    if (placeIndex < 0) {
+                        problems.add(at + "AWAIT_ORDER_STATUS must come after PLACE_ORDER");
+                    }
+                    if (!java.util.Set.of("PENDING", "CONFIRMED", "CANCELLED").contains(await.status())) {
+                        problems.add(at + "status must be PENDING, CONFIRMED or CANCELLED");
+                    }
+                    for (Step.Arm hold : holdsArmedBefore(i)) {
+                        if (!releasedBefore(hold.service(), i)) {
+                            problems.add(at + "the HOLD on " + hold.topic() + " must be released first, or the order"
+                                    + " can never move on");
+                        }
+                    }
+                }
                 case Step.ReleaseAll release -> {
                     if (placeIndex < 0) {
                         problems.add(at + "RELEASE_ALL must come after PLACE_ORDER");
@@ -132,6 +146,18 @@ public record Schedule(String name, List<Step> steps) {
         return steps.subList(0, before).stream()
                 .anyMatch(step -> step instanceof Step.AwaitHeld await && await.service() == service
                         && Objects.equals(await.topic(), topic));
+    }
+
+    private List<Step.Arm> holdsArmedBefore(int before) {
+        return steps.subList(0, before).stream()
+                .filter(Step.Arm.class::isInstance).map(Step.Arm.class::cast)
+                .filter(arm -> arm.fault() != null && Fault.HOLD.equals(arm.fault().type()))
+                .toList();
+    }
+
+    private boolean releasedBefore(Service service, int before) {
+        return steps.subList(0, before).stream()
+                .anyMatch(step -> step instanceof Step.ReleaseAll release && release.service() == service);
     }
 
     private boolean releasedLater(Service service, int after) {

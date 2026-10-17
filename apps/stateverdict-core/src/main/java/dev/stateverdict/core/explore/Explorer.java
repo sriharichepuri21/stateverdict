@@ -108,9 +108,14 @@ public final class Explorer {
         List<Step> steps = schedule.steps();
         for (int i = 0; i < steps.size(); i++) {
             if (steps.get(i) instanceof Step.Cancel) {
-                return i > 0 && steps.get(i - 1) instanceof Step.AwaitHeld await
-                        ? "cancel while " + await.topic() + " held"
-                        : "cancel right after order";
+                Step previous = i > 0 ? steps.get(i - 1) : null;
+                if (previous instanceof Step.AwaitHeld await) {
+                    return "cancel while " + await.topic() + " held";
+                }
+                if (previous instanceof Step.AwaitOrderStatus await) {
+                    return "cancel after order " + await.status();
+                }
+                return "cancel right after order";
             }
         }
         return "no cancel";

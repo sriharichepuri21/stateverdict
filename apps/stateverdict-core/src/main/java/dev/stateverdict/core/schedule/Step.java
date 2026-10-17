@@ -13,6 +13,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         @JsonSubTypes.Type(value = Step.PlaceOrder.class, name = "PLACE_ORDER"),
         @JsonSubTypes.Type(value = Step.AwaitHeld.class, name = "AWAIT_HELD"),
         @JsonSubTypes.Type(value = Step.Cancel.class, name = "CANCEL"),
+        @JsonSubTypes.Type(value = Step.AwaitOrderStatus.class, name = "AWAIT_ORDER_STATUS"),
         @JsonSubTypes.Type(value = Step.ReleaseAll.class, name = "RELEASE_ALL")
 })
 public sealed interface Step {
@@ -49,6 +50,17 @@ public sealed interface Step {
         @Override
         public String describe() {
             return "customer cancels the order";
+        }
+    }
+
+    /**
+     * Wait until the order reaches {@code status} (for example CONFIRMED), so the next step (typically a
+     * cancel) happens after the workflow has moved on. Every hold must have been released before it.
+     */
+    record AwaitOrderStatus(String status) implements Step {
+        @Override
+        public String describe() {
+            return "wait until the order is " + status;
         }
     }
 

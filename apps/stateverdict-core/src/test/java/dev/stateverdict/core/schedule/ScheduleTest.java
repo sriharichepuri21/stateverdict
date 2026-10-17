@@ -59,6 +59,19 @@ class ScheduleTest {
     }
 
     @Test
+    void waitingForAnOrderStatusNeedsEveryHoldReleasedFirst() {
+        Step awaitConfirmed = new Step.AwaitOrderStatus("CONFIRMED");
+        assertThat(schedule(PLACE, awaitConfirmed, CANCEL).isValid()).isTrue();
+        assertThat(schedule(HOLD_COMPLETION, PLACE, AWAIT_COMPLETION, RELEASE_ORDER, awaitConfirmed, CANCEL).isValid())
+                .isTrue();
+        assertThat(schedule(HOLD_COMPLETION, PLACE, awaitConfirmed, AWAIT_COMPLETION, RELEASE_ORDER).problems())
+                .anyMatch(p -> p.contains("must be released first"));
+        assertThat(schedule(PLACE, new Step.AwaitOrderStatus("SHIPPED")).problems())
+                .anyMatch(p -> p.contains("PENDING, CONFIRMED or CANCELLED"));
+        assertThat(schedule(awaitConfirmed, PLACE).problems()).anyMatch(p -> p.contains("must come after PLACE_ORDER"));
+    }
+
+    @Test
     void awaitingAHeldMessageNeedsAMatchingHold() {
         assertThat(schedule(PLACE, AWAIT_COMPLETION).problems()).anyMatch(p -> p.contains("AWAIT_HELD count"));
         Step wrongTopic = new Step.AwaitHeld(Service.ORDER, "payment.requested", 1);
@@ -88,7 +101,7 @@ class ScheduleTest {
     void schedulesRoundTripThroughJson() {
         Schedule original = schedule(HOLD_COMPLETION,
                 new Step.Arm(Service.PAYMENT, "payment.requested", Fault.delay(250)), PLACE, AWAIT_COMPLETION, CANCEL,
-                RELEASE_ORDER);
+                RELEASE_ORDER, new Step.AwaitOrderStatus("CANCELLED"));
 
         Schedule read = JSON.readValue(JSON.writeValueAsString(original), Schedule.class);
 

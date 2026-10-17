@@ -5,8 +5,9 @@
 #
 # Picks, from an exploration report:
 #   sv-002     the SV-002 finding with the most interventions          (must minimize and fail 10/10)
-#   sv-003     the SV-003-only finding with the most interventions     (must minimize and fail 10/10)
-#   no-fault   an SV-003 finding with no injected fault, if there is one (measured only: timing-dependent)
+#   sv-003     the SV-003 finding without SV-002 with the most interventions (must minimize and fail 10/10)
+#   no-fault   an SV-003 finding with no injected fault, if there is one     (measured only)
+# A required pick that finds nothing is an error, so a gate cannot be skipped silently.
 # Needs the Compose stack running with the naive handlers and the CLI jar built.
 set -euo pipefail
 
@@ -25,7 +26,13 @@ status=0
 shrink_one() {  # shrink_one LABEL SCHEDULE RULE MUST_CONFIRM
   local label=$1 schedule=$2 rule=$3 must=$4
   if [ -z "${schedule}" ]; then
-    echo "::notice title=Shrink (${label})::no such finding in this exploration"; return
+    if [ "${must}" = "yes" ]; then
+      echo "::error title=Shrink (${label})::no matching finding to shrink; the selection or the exploration changed"
+      status=1
+    else
+      echo "::notice title=Shrink (${label})::no such finding in this exploration"
+    fi
+    return
   fi
   echo "=== ${label}: ${schedule} (target ${rule}) ==="
   set +e
@@ -52,6 +59,6 @@ shrink_one() {  # shrink_one LABEL SCHEDULE RULE MUST_CONFIRM
 }
 
 shrink_one sv-002   "$(pick '(.violatedRules | index("SV-002"))')" SV-002 yes
-shrink_one sv-003   "$(pick '(.violatedRules == ["SV-003"])')" SV-003 yes
-shrink_one no-fault "$(pick '(.violatedRules == ["SV-003"]) and ([.schedule.steps[] | select(.type == "ARM")] | length == 0)')" SV-003 no
+shrink_one sv-003   "$(pick '(.violatedRules | index("SV-003")) and ((.violatedRules | index("SV-002")) | not)')" SV-003 yes
+shrink_one no-fault "$(pick '(.violatedRules | index("SV-003")) and ([.schedule.steps[] | select(.type == "ARM")] | length == 0)')" SV-003 no
 exit "${status}"

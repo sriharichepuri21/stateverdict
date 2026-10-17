@@ -54,6 +54,14 @@ class ReductionsTest {
     }
 
     @Test
+    void waitingForAStatusCanBeDroppedOnItsOwn() {
+        Schedule afterConfirmed = new Schedule("after", List.of(PLACE, new Step.AwaitOrderStatus("CONFIRMED"), CANCEL));
+
+        assertThat(Reductions.of(afterConfirmed)).extracting(Reductions.Candidate::change)
+                .containsExactly("remove the customer's cancel", "stop waiting for the order to be CONFIRMED");
+    }
+
+    @Test
     void aPlainOrderCannotBeReducedFurther() {
         assertThat(Reductions.of(new Schedule("plain", List.of(PLACE)))).isEmpty();
     }

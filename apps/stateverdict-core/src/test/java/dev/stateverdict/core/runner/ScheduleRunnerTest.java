@@ -48,6 +48,10 @@ class ScheduleRunnerTest {
     private volatile boolean cancelled;
     private volatile int heldInOrderService;
     private volatile boolean completionDelivered;
+    /** Stub refunds: how many refund lookups to answer with "nothing refunded" before refunding. */
+    private volatile int refundLookupsBeforeRefund;
+    private volatile boolean refundEver;
+    private final java.util.concurrent.atomic.AtomicInteger refundLookups = new java.util.concurrent.atomic.AtomicInteger();
     private final List<String> calls = new CopyOnWriteArrayList<>();
 
     private HttpServer order;
@@ -56,6 +60,8 @@ class ScheduleRunnerTest {
     @BeforeEach
     void start() throws IOException {
         finalStatus = "CONFIRMED";
+        refundLookupsBeforeRefund = 0;
+        refundEver = true;
         heldInOrderService = 1;
         completionDelivered = true;
         order = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
@@ -107,7 +113,12 @@ class ScheduleRunnerTest {
         } else if (service.equals("order") && method.equals("GET") && path.equals("/orders/" + ORDER_ID)) {
             respond(exchange, 200, orderJson(finalStatus));
         } else if (service.equals("payment") && method.equals("GET") && path.equals("/captures")) {
-            respond(exchange, 200, "{\"orderId\":\"" + ORDER_ID + "\",\"captures\":[{\"eventId\":\"e\"}]}");
+            respond(exchange, 200, "{\"orderId\":\"" + ORDER_ID + "\",\"captures\":[{\"id\":\"c1\",\"eventId\":\"e\"}]}");
+        } else if (service.equals("payment") && method.equals("GET") && path.equals("/refunds")) {
+            int lookup = refundLookups.incrementAndGet(); // count every lookup, refunded or not
+            boolean refunded = refundEver && lookup > refundLookupsBeforeRefund;
+            respond(exchange, 200, "{\"orderId\":\"" + ORDER_ID + "\",\"refunds\":"
+                    + (refunded ? "[{\"captureId\":\"c1\"}]" : "[]") + "}");
         } else {
             respond(exchange, 404, "");
         }
@@ -131,8 +142,9 @@ class ScheduleRunnerTest {
         ScheduleRunner.Config config = new ScheduleRunner.Config(
                 URI.create("http://localhost:" + order.getAddress().getPort()),
                 URI.create("http://localhost:" + payment.getAddress().getPort()),
-                Duration.ofMillis(800), Duration.ZERO);
-        return new ScheduleRunner(config, List.of(new CaptureUniquenessRule(), new CancelledOrderNotConfirmedRule()), JSON)
+                Duration.ofMillis(800), Duration.ZERO, Duration.ofMillis(1500));
+        return new ScheduleRunner(config, List.of(new CaptureUniquenessRule(), new CancelledOrderNotConfirmedRule(),
+                new dev.stateverdict.core.rules.RefundForCancelledCaptureRule()), JSON)
                 .run(schedule, "run-1");
     }
 
@@ -151,6 +163,71 @@ class ScheduleRunnerTest {
         finalStatus = "CANCELLED";
 
         assertThat(run(CANCEL_RACE).verdict()).isEqualTo(Verdict.PASS);
+    }
+
+    @Test
+    void aRefundThatArrivesLateWithinTheWindowSatisfiesTheEventualRule() throws Exception {
+        finalStatus = "CANCELLED";
+        refundLookupsBeforeRefund = 2;
+
+        RunReport report = run(CANCEL_RACE);
+
+        assertThat(report.ruleResults()).filteredOn(r -> r.ruleId().equals("SV-004")).singleElement()
+                .satisfies(r -> assertThat(r.status()).isEqualTo(EvaluationStatus.SATISFIED));
+        assertThat(report.verdict()).isEqualTo(Verdict.PASS);
+        assertThat(report.notes()).anyMatch(n -> n.contains("re-observed 3 times"));
+    }
+
+    @Test
+    void aRefundThatNeverArrivesViolatesTheEventualRuleAfterTheWindow() throws Exception {
+        finalStatus = "CANCELLED";
+        refundEver = false;
+
+        RunReport report = run(CANCEL_RACE);
+
+        assertThat(report.ruleResults()).filteredOn(r -> r.ruleId().equals("SV-004")).singleElement()
+                .satisfies(r -> assertThat(r.status()).isEqualTo(EvaluationStatus.VIOLATED));
+        assertThat(report.verdict()).isEqualTo(Verdict.FAIL);
+        assertThat(report.notes()).anyMatch(n -> n.contains("still not satisfied"));
+        assertThat(refundLookups.get()).isGreaterThan(3);
+    }
+
+    @Test
+    void safetyRulesAreNotCutShortByTheWindow() throws Exception {
+        // SV-004 is satisfied immediately, so there is exactly one observation; the result is the same
+        // as without any window.
+        finalStatus = "CANCELLED";
+
+        RunReport report = run(CANCEL_RACE);
+
+        assertThat(report.notes()).noneMatch(n -> n.contains("re-observed"));
+        assertThat(refundLookups.get()).isEqualTo(1);
+    }
+
+    @Test
+    void cancellingAfterTheOrderIsConfirmedWaitsForTheStatus() throws Exception {
+        Schedule afterConfirmed = new Schedule("after-confirmed", List.of(
+                new Step.PlaceOrder(129_900), new Step.AwaitOrderStatus("CONFIRMED"), new Step.Cancel()));
+        heldInOrderService = 0;
+
+        RunReport report = run(afterConfirmed);
+
+        int sawStatus = calls.indexOf("order GET /orders/" + ORDER_ID);
+        int cancel = calls.indexOf("order POST /orders/" + ORDER_ID + "/cancel");
+        assertThat(sawStatus).isNotNegative().isLessThan(cancel);
+        assertThat(report.executionStatus()).isEqualTo(ExecutionStatus.COMPLETED);
+    }
+
+    @Test
+    void aStatusThatIsNeverReachedIsATimeout() throws Exception {
+        Schedule neverCancelled = new Schedule("never", List.of(
+                new Step.PlaceOrder(129_900), new Step.AwaitOrderStatus("CANCELLED"), new Step.Cancel()));
+        heldInOrderService = 0;
+
+        RunReport report = run(neverCancelled);
+
+        assertThat(report.executionStatus()).isEqualTo(ExecutionStatus.TIMED_OUT);
+        assertThat(calls).noneMatch(c -> c.endsWith("/cancel"));
     }
 
     @Test
@@ -210,7 +287,7 @@ class ScheduleRunnerTest {
         RunReport report = run(CANCEL_RACE);
 
         assertThat(report.evidence()).extracting(e -> e.id()).contains("order.created", "order.cancel", "order.state",
-                "payment.captures", "dispatch.journal.order", "dispatch.journal.payment");
+                "payment.captures", "payment.refunds", "dispatch.journal.order", "dispatch.journal.payment");
         assertThat(report.faultSchedule()).hasSize(5)
                 .first().satisfies(step -> assertThat(step).containsEntry("type", "ARM"));
     }
