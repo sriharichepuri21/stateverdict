@@ -34,3 +34,7 @@ stateverdict:
 payment:
   capture:
     handler: ${PAYMENT_CAPTURE_HANDLER:idempotent}
+
+# Evaluation only: deliberately altered behaviour for the defect corpus (docs/evaluation/corpus.md).
+evaluation:
+  mutation: ${EVALUATION_MUTATION:}

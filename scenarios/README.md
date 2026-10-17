@@ -2,8 +2,8 @@
 
 A schedule is an ordered list of steps that `stateverdict run-schedule` runs against the order and
 payment services in one run. After the steps, StateVerdict waits until the workflow is complete,
-collects committed state, and evaluates SV-002 (at most one capture per order) and SV-003 (a
-cancelled order never ends CONFIRMED).
+collects committed state, and evaluates SV-001 (a CONFIRMED order has a capture), SV-002 (at most
+one capture per order) and SV-003 (a cancelled order never ends CONFIRMED).
 
 | File | What it does | Naive handlers | Fixed handlers |
 |---|---|---|---|

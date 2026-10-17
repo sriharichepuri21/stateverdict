@@ -21,14 +21,24 @@ public class GuardedCompletionHandler implements CompletionHandler {
     private static final Logger log = LoggerFactory.getLogger(GuardedCompletionHandler.class);
 
     private final OrderRepository orders;
+    private final Mutations mutations;
 
-    public GuardedCompletionHandler(OrderRepository orders) {
+    public GuardedCompletionHandler(OrderRepository orders, Mutations mutations) {
         this.orders = orders;
+        this.mutations = mutations;
     }
 
     @Override
     public void apply(PaymentCompleted event) {
         String status = CompletionHandler.targetStatus(event);
+        if (mutations.active("M05") && PaymentCompleted.DECLINED.equals(event.outcome())) {
+            status = Order.CONFIRMED; // M05 (evaluation defect): a declined payment confirms the order
+        }
+        if (mutations.active("C01") && orders.findById(event.orderId()).isEmpty()) {
+            // C01 (evaluation control): an extra read before the conditional update. Harmless refactor.
+            log.warn("payment outcome for unknown order {}", event.orderId());
+            return;
+        }
         if (orders.setStatusIfPending(event.orderId(), status) == 1) {
             log.info("order {} set to {} from payment outcome {}", event.orderId(), status, event.outcome());
             return;
