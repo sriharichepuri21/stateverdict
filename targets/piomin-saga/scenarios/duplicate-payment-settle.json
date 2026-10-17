@@ -1,0 +1,2 @@
+{ "name": "duplicate-payment-settle", "order": { "price": 100, "count": 1, "funds": 1000, "stock": 10 },
+  "arms": [ { "service": "PAYMENT", "phase": "orders.settle", "fault": { "type": "DUPLICATE", "copies": 2 } } ] }

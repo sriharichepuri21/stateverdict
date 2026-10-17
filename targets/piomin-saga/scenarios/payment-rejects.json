@@ -1,0 +1,1 @@
+{ "name": "payment-rejects", "order": { "price": 5000, "count": 1, "funds": 1000, "stock": 10 } }

@@ -183,3 +183,38 @@ jobs:
           name: demo-reports
           path: artifacts/
           if-no-files-found: ignore
+
+  external-target:
+    name: "External target: piomin saga (Kafka Streams)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Build the StateVerdict CLI
+        run: mvn -B -q -pl apps/stateverdict-core -am package -DskipTests
+      - name: Fetch the target at its pinned commit, apply the adapter, build it
+        run: targets/piomin-saga/prepare.sh
+      - name: Start the patched target
+        run: docker compose -f targets/piomin-saga/docker-compose.yml up -d --wait broker && docker compose -f targets/piomin-saga/docker-compose.yml up -d
+      - name: Wait until the target decides an order end to end
+        run: targets/piomin-saga/wait-ready.sh
+      - name: "Measure every schedule, 10 clean-state trials each"
+        run: targets/piomin-saga/measure.sh 10
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: piomin-saga-reports
+          path: artifacts/
+          if-no-files-found: ignore
+      - name: Service logs
+        if: always()
+        run: docker compose -f targets/piomin-saga/docker-compose.yml logs --no-color | tail -400
+      - name: Stop the target
+        if: always()
+        run: docker compose -f targets/piomin-saga/docker-compose.yml down -v
