@@ -30,6 +30,7 @@ import tools.jackson.databind.json.JsonMapper;
  * stateverdict run-schedule SCHEDULE.json [--order-url URL] [--payment-url URL] [--deadline-ms MS]
  *                  [--settle-ms MS] [--trials N] [--report PATH]
  * stateverdict explore [--iterations N] [--seed S] [--out DIR] [--stop-on-first true] [--report PATH] ...
+ * stateverdict shrink SCHEDULE.json [--trials K] [--confirm N] [--rules R1,R2] [--out PATH] [--report PATH] ...
  * stateverdict replay-evidence REPORT.json
  * </pre>
  *
@@ -58,6 +59,11 @@ public final class Main {
                 Generate valid schedules from a seed, run each once, and save any that violate a rule.
                 --iterations N (default 20)  --seed S (printed; reuse to repeat)  --out DIR (default artifacts/found)
                 --stop-on-first true  --report PATH  plus --order-url, --payment-url, --deadline-ms, --settle-ms
+              stateverdict shrink SCHEDULE.json [options]
+                Reduce a failing schedule to a locally minimal one that still fails every time.
+                --trials K (default 3: runs per candidate, all must fail)  --confirm N (default 10)
+                --rules SV-003 (default: rules the original violates)  --out PATH  --report PATH
+                Exit: 1 minimized and fails N/N, 2 not reliably reproducible, 0 does not fail at all
               stateverdict replay-evidence REPORT.json
                 Re-evaluate the rules on a saved report's evidence. Contacts no service.
 
@@ -74,6 +80,8 @@ public final class Main {
             java.util.Set.of("--order-url", "--payment-url", "--copies", "--deadline-ms", "--settle-ms", "--trials", "--report");
     private static final java.util.Set<String> EXPLORE_OPTIONS = java.util.Set.of("--order-url", "--payment-url",
             "--deadline-ms", "--settle-ms", "--iterations", "--seed", "--out", "--report", "--stop-on-first");
+    private static final java.util.Set<String> SHRINK_OPTIONS = java.util.Set.of("--order-url", "--payment-url",
+            "--deadline-ms", "--settle-ms", "--rules", "--trials", "--confirm", "--out", "--report");
     private static final java.util.Set<String> SCHEDULE_OPTIONS =
             java.util.Set.of("--order-url", "--payment-url", "--deadline-ms", "--settle-ms", "--trials", "--report");
 
@@ -86,6 +94,9 @@ public final class Main {
         try {
             if (args.length >= 2 && args[0].equals("run") && args[1].equals(DuplicateDeliveryScenario.NAME)) {
                 return runScenario(options(args, 2, RUN_OPTIONS), writer, out);
+            }
+            if (args.length >= 2 && args[0].equals("shrink")) {
+                return shrink(Path.of(args[1]), options(args, 2, SHRINK_OPTIONS), out);
             }
             if (args.length >= 1 && args[0].equals("explore")) {
                 return explore(options(args, 1, EXPLORE_OPTIONS), writer, out);
@@ -142,16 +153,7 @@ public final class Main {
     private static int runSchedule(Path schedulePath, Map<String, String> options, ReportWriter writer, PrintStream out)
             throws IOException, InterruptedException {
         JsonMapper json = JsonMapper.builder().build();
-        Schedule schedule;
-        try {
-            schedule = json.readValue(Files.readString(schedulePath), Schedule.class);
-        } catch (tools.jackson.core.JacksonException e) {
-            throw new IllegalArgumentException("cannot read schedule " + schedulePath + ": " + e.getMessage());
-        }
-        List<String> problems = schedule.problems();
-        if (!problems.isEmpty()) {
-            throw new IllegalArgumentException("invalid schedule " + schedulePath + ":\n  " + String.join("\n  ", problems));
-        }
+        Schedule schedule = readSchedule(json, schedulePath);
         ScheduleRunner.Config config = scheduleConfig(options);
         int trials = intOption(options, "--trials", 1);
         if (trials < 1 || trials > MAX_TRIALS) {
@@ -201,6 +203,57 @@ public final class Main {
         }
         out.println("Exit code: " + report.overall().exitCode());
         return report.overall().exitCode();
+    }
+
+    private static int shrink(Path schedulePath, Map<String, String> options, PrintStream out)
+            throws IOException, InterruptedException {
+        JsonMapper json = JsonMapper.builder().build();
+        Schedule schedule = readSchedule(json, schedulePath);
+        int trials = intOption(options, "--trials", 3);
+        int confirm = intOption(options, "--confirm", 10);
+        if (trials < 1 || trials > 50 || confirm < 1 || confirm > MAX_TRIALS) {
+            throw new IllegalArgumentException("--trials must be 1-50 and --confirm 1-" + MAX_TRIALS);
+        }
+        List<String> rules = options.containsKey("--rules")
+                ? List.of(options.get("--rules").split(","))
+                : List.of();
+        ScheduleRunner runner = new ScheduleRunner(scheduleConfig(options), ALL_RULES, json);
+        out.println("Shrinking " + schedulePath + ": each candidate must fail " + trials + "/" + trials
+                + "; original and result are measured over " + confirm + " runs\n");
+        dev.stateverdict.core.explore.ShrinkReport report =
+                new dev.stateverdict.core.explore.Shrinker(runner::run, trials, confirm).shrink(schedule, rules, out);
+        out.print(dev.stateverdict.core.explore.Shrinker.toConsole(report));
+        Path minimizedPath = Path.of(options.getOrDefault("--out",
+                schedulePath.toString().replaceFirst("\\.json$", "") + ".min.json"));
+        if (report.status() == dev.stateverdict.core.explore.ShrinkReport.Status.MINIMIZED) {
+            write(minimizedPath, json.writerWithDefaultPrettyPrinter().writeValueAsString(report.minimized()));
+            out.println("Minimized schedule: " + minimizedPath);
+        }
+        String reportPath = options.get("--report");
+        if (reportPath != null) {
+            write(Path.of(reportPath), json.writerWithDefaultPrettyPrinter().writeValueAsString(report));
+            out.println("Report: " + reportPath);
+        }
+        // 1: a reliably failing, minimized schedule (a confirmed defect); 2: not reliably reproducible.
+        int exit = report.status() == dev.stateverdict.core.explore.ShrinkReport.Status.MINIMIZED
+                ? (report.minimizedFailures() == report.confirmTrials() ? 1 : 2)
+                : (report.originalFailures() == 0 ? 0 : 2);
+        out.println("Exit code: " + exit);
+        return exit;
+    }
+
+    private static Schedule readSchedule(JsonMapper json, Path path) throws IOException {
+        Schedule schedule;
+        try {
+            schedule = json.readValue(Files.readString(path), Schedule.class);
+        } catch (tools.jackson.core.JacksonException e) {
+            throw new IllegalArgumentException("cannot read schedule " + path + ": " + e.getMessage());
+        }
+        List<String> problems = schedule.problems();
+        if (!problems.isEmpty()) {
+            throw new IllegalArgumentException("invalid schedule " + path + ":\n  " + String.join("\n  ", problems));
+        }
+        return schedule;
     }
 
     private static ScheduleRunner.Config scheduleConfig(Map<String, String> options) {
