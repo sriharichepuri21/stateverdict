@@ -89,10 +89,12 @@ class ScheduleTest {
     @Test
     void invalidFaultsAreReported() {
         Step badDuplicate = new Step.Arm(Service.PAYMENT, "payment.requested", Fault.duplicate(1));
+        Step badConcurrent = new Step.Arm(Service.PAYMENT, "payment.requested", Fault.duplicateConcurrent(1));
         Step badDelay = new Step.Arm(Service.PAYMENT, "payment.requested", Fault.delay(0));
         Step unknown = new Step.Arm(Service.PAYMENT, "payment.requested", new Fault("EXPLODE", null, null));
 
         assertThat(schedule(badDuplicate, PLACE).problems()).anyMatch(p -> p.contains("copies >= 2"));
+        assertThat(schedule(badConcurrent, PLACE).problems()).anyMatch(p -> p.contains("DUPLICATE_CONCURRENT needs copies >= 2"));
         assertThat(schedule(badDelay, PLACE).problems()).anyMatch(p -> p.contains("delayMs > 0"));
         assertThat(schedule(unknown, PLACE).problems()).anyMatch(p -> p.contains("unknown fault type"));
     }

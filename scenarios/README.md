@@ -9,14 +9,15 @@ for a cancelled order is refunded; an "eventually" rule, re-observed for up to 5
 | File | What it does | Naive handlers | Fixed handlers |
 |---|---|---|---|
 | `checkout-baseline.json` | One normal order, no faults (negative control) | PASS | PASS |
-| `duplicate-payment-request.json` | `payment.requested` delivered twice | FAIL (SV-002) | PASS |
+| `duplicate-payment-request.json` | `payment.requested` delivered twice, one copy after the other | FAIL (SV-002) | PASS |
+| `concurrent-duplicate-payment-request.json` | `payment.requested` delivered twice at the same moment, on parallel threads | FAIL (SV-002) | PASS |
 | `cancel-while-payment-completion-held.json` | Hold `payment.completed`, cancel while it is held, then release it | FAIL (SV-003) | PASS |
 
 ## Steps
 
 | `type` | Fields | Meaning |
 |---|---|---|
-| `ARM` | `service` (`ORDER`/`PAYMENT`), `topic`, `fault` (`HOLD`, `DUPLICATE` + `copies`, `DELAY` + `delayMs`) | Fault for the next matching message the service consumes |
+| `ARM` | `service` (`ORDER`/`PAYMENT`), `topic`, `fault` (`HOLD`, `DUPLICATE` + `copies`, `DUPLICATE_CONCURRENT` + `copies`, `DELAY` + `delayMs`) | Fault for the next matching message the service consumes |
 | `PLACE_ORDER` | `amountCents` (above 500000 is declined) | Place the order, tagged with the run id |
 | `AWAIT_HELD` | `service`, `topic`, `count` | Wait until that many messages are held, so the next step happens *while* they are held |
 | `CANCEL` | | The customer cancels the order (409 if it already moved on is a normal outcome) |

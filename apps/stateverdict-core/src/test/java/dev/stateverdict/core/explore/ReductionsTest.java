@@ -70,6 +70,10 @@ class ReductionsTest {
     void simplificationStopsAtTheSmallestParameters() {
         assertThat(Reductions.simplify(Fault.duplicate(3))).isEqualTo(Fault.duplicate(2));
         assertThat(Reductions.simplify(Fault.duplicate(2))).isNull();
+        assertThat(Reductions.simplify(Fault.duplicateConcurrent(3))).isEqualTo(Fault.duplicateConcurrent(2));
+        // The last simplification of a concurrent duplicate is to deliver the copies one after
+        // another: if that still fails, the race was not needed.
+        assertThat(Reductions.simplify(Fault.duplicateConcurrent(2))).isEqualTo(Fault.duplicate(2));
         assertThat(Reductions.simplify(Fault.delay(150))).isEqualTo(Fault.delay(100));
         assertThat(Reductions.simplify(Fault.delay(100))).isNull();
         assertThat(Reductions.simplify(Fault.hold())).isNull();

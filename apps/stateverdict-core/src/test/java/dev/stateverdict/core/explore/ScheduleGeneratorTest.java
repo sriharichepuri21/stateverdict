@@ -50,7 +50,9 @@ class ScheduleGeneratorTest {
         }
         assertThat(seen).contains(
                 "payment.requested HOLD", "payment.requested DUPLICATE", "payment.requested DELAY",
+                "payment.requested DUPLICATE_CONCURRENT",
                 "payment.completed HOLD", "payment.completed DUPLICATE", "payment.completed DELAY",
+                "payment.completed DUPLICATE_CONCURRENT",
                 "no faults", "no cancel", "cancel right after order",
                 "cancel while payment.requested held", "cancel while payment.completed held",
                 "cancel after order CONFIRMED",

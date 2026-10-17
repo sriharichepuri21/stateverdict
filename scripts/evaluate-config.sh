@@ -80,6 +80,20 @@ for schedule in scenarios/*.json; do
   rules=$(grep -B4 'Result:   VIOLATED' "${OUT}/${CONFIG}-${name}.txt" | grep -o '^Rule SV-[0-9]*' | cut -d' ' -f2 | jq -R . | jq -s .)
   schedules=$(jq -c --arg n "${name}" --arg v "${verdict}" --argjson r "${rules}" '. + [{name: $n, verdict: $v, violated: $r}]' <<< "${schedules}")
 done
+if [ "${CONFIG}" = M03 ]; then
+  # M03 is the concurrency defect: measure how reliably the race reproduces, and shrink a generated
+  # finding to see whether the shrinker keeps the concurrency (it should: copies delivered one after
+  # another are skipped correctly). Measured only; the head-to-head result above is what is judged.
+  OUT_DIR="${OUT}" scripts/measure-schedule.sh scenarios/concurrent-duplicate-payment-request.json 10 FAIL m03-concurrent || true
+  OUT_DIR="${OUT}" scripts/measure-schedule.sh scenarios/duplicate-payment-request.json 10 PASS m03-sequential || true
+  finding=$(jq -r '[.findings[] | select(.violatedRules | index("SV-002"))] | first | .savedAs // empty' "${OUT}/${CONFIG}-explore.json")
+  if [ -n "${finding}" ]; then
+    java -jar "${CLI}" shrink "${finding}" --rules SV-002 --trials 3 --confirm 10 \
+      --out "${OUT}/M03-shrunk.min.json" --report "${OUT}/M03-shrink.json" > "${OUT}/M03-shrink.txt" 2>&1
+    shrunk=$(jq -r '"\(.status), fails \(.minimizedFailures)/\(.confirmTrials); minimal: \([.minimized.steps[] | if .type == "ARM" then "ARM \(.fault.type) x\(.fault.copies // "") \(.topic)" else .type end] | join(" > "))"' "${OUT}/M03-shrink.json")
+    echo "::notice title=Shrink (M03 finding)::${shrunk}"
+  fi
+fi
 docker compose -f infrastructure/compose/docker-compose.yml down -v > /dev/null 2>&1
 
 jq -n --arg config "${CONFIG}" --arg kind "${kind}" --arg mutation "${mutation}" \
