@@ -48,10 +48,10 @@ every one of the same schedules.
 
 ## What this does and does not show
 
-- **A finding is a lead, not a verified reproduction.** Each schedule ran once. Findings that depend
-  on real timing (for example "no faults, cancel right after order") may not fail every time; the
-  hand-written race with `AWAIT_HELD` does (FAIL 10/10). Measuring that per finding, and reducing
-  each to its smallest failing form, is the shrinker's job (next PR).
+- **A finding is a lead, not a verified reproduction.** Each schedule ran once. I expected findings
+  that depend on real timing (for example "no faults, cancel right after order") not to fail every
+  time. **Measured later, that was wrong:** it failed 10/10, and shrinking showed the faults were never
+  needed. See [shrinking.md](shrinking.md).
 - **The search space is small and chosen by hand:** two events, four fault kinds, three customer
   behaviours. Random generation found these defects because they are common in that space (24 of
   60). Rarer defects would need more iterations or smarter generation.

@@ -106,6 +106,25 @@ Seed 42, 60 schedules: against the naive handlers it found **24 violations of SV
 3 of them the race written by hand; 4 needed no fault at all, just a customer cancelling quickly.
 Against the fixed handlers all 60 passed. Details: [docs/results/exploration.md](docs/results/exploration.md).
 
+## Shrinking: the smallest schedule that still fails
+
+`stateverdict shrink <schedule>` cuts a failing schedule down: it tries removing each fault, the
+customer's cancel, and simplifying parameters, keeps a change only if the smaller schedule still
+fails **every one** of K runs (default 3), and repeats until nothing more can go. Removing a hold also
+removes its wait and release, so every candidate stays valid. The original and the result are each
+measured over N runs (default 10), so you see whether the smaller schedule is as reliable as the
+original. A finding that does not fail every time is measured and reported, not shrunk.
+
+```bash
+docker compose -f infrastructure/compose/docker-compose.yml --profile cli run --rm stateverdict \
+  shrink artifacts/found/<finding>.json
+```
+
+Measured in CI: the most complex SV-002 finding shrank to "deliver the payment request twice, place
+the order", and the most complex SV-003 finding shrank to just **"place the order, cancel it"**, both
+failing 10/10. The cancel/confirm race never needed a fault. Details:
+[docs/results/shrinking.md](docs/results/shrinking.md).
+
 ## How it works
 
 ```text
@@ -164,17 +183,18 @@ $SV replay-evidence artifacts/dup.json                       # same verdict, no 
 $SV run checkout-duplicate-payment-request --copies 2 --trials 10
 ```
 
-Developing locally with Java 21 and Maven: `mvn -B verify` runs all 126 tests, using Testcontainers
+Developing locally with Java 21 and Maven: `mvn -B verify` runs all 138 tests, using Testcontainers
 for PostgreSQL and Kafka.
 
 ## Status and limits
 
 The seven-step technical spike from the [specification](docs/specification/StateVerdict_Engineering_Specification_v1.0.pdf)
 is complete; see the [retrospective](docs/results/spike-retrospective.md). Since then: a second event
-flow with customer cancellation, schedules, rule SV-003, and the explorer (gate 2 met). StateVerdict
-covers two defect classes (duplicate side effects, and an outcome overwriting a cancellation), with
-sequential delivery on a single-partition topology. Next: shrinking failing schedules and measuring
-how reliably each one reproduces (gate 3).
+flow with customer cancellation, schedules, rule SV-003, the explorer (gate 2 met) and the shrinker
+(gate 3 met). StateVerdict covers two defect classes (duplicate side effects, and an outcome
+overwriting a cancellation), with sequential delivery on a single-partition topology. Next: a refund
+rule (shrinking exposed that a cancelled-but-captured order is never refunded), a mutation corpus and
+a JUnit baseline (gate 4).
 
 ## Guiding principle
 

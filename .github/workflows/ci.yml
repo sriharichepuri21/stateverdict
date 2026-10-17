@@ -46,7 +46,7 @@ jobs:
   compose-smoke:
     name: Docker Compose smoke test
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5
@@ -92,6 +92,8 @@ jobs:
           scripts/measure-schedule.sh scenarios/cancel-while-payment-completion-held.json 10 FAIL cancel-race-naive
       - name: "Explorer, naive handlers: 60 generated schedules must find SV-002 and SV-003"
         run: scripts/explore.sh naive 60 42 FAIL SV-002 SV-003
+      - name: "Shrinker: reduce explorer findings and confirm each over 10 runs (gate 3)"
+        run: scripts/shrink-findings.sh artifacts/explore-naive.json
       - name: Switch the payment service to the idempotent handler
         run: |
           PAYMENT_CAPTURE_HANDLER=idempotent \

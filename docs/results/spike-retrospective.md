@@ -45,8 +45,8 @@ tests (unit, stub-server and Testcontainers) cover every verdict path.
 | Gate | Status |
 |---|---|
 | 1. A manually defined scenario detects a genuine business-state violation | **Met.** SV-002, FAIL 10/10 against the naive handler; negative controls PASS |
-| 2. A generated fault schedule finds a violation not written as a hand-made scenario | Not started. The scenario and its fault are hand-written |
-| 3. A failing schedule is reduced while preserving the violation under repeated trials | Not started. The trial runner it needs is in place |
+| 2. A generated fault schedule finds a violation not written as a hand-made scenario | Not started during the spike; **met later** (PR #11, [exploration.md](exploration.md)) |
+| 3. A failing schedule is reduced while preserving the violation under repeated trials | Not started during the spike; **met later** (PR #12, [shrinking.md](shrinking.md)) |
 | 4. Negative controls, measured results and CI show the tool is dependable | **Partly met.** Two negative controls (baseline, fixed handler), measured and gated in CI. No mutation corpus or JUnit baseline comparison yet |
 
 ## What went well
