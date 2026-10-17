@@ -13,16 +13,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.context.annotation.Bean;
-import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -50,13 +46,6 @@ class ControlledDispatchFlowTest {
     @ServiceConnection
     static KafkaContainer kafka = new KafkaContainer("apache/kafka:4.1.0");
 
-    @TestConfiguration
-    static class Topics {
-        @Bean
-        NewTopic paymentRequested() {
-            return TopicBuilder.name("payment.requested").partitions(1).replicas(1).build();
-        }
-    }
 
     @Value("${local.server.port}")
     int port;

@@ -17,15 +17,26 @@ public class NaiveCaptureHandler implements CaptureHandler {
     private static final Logger log = LoggerFactory.getLogger(NaiveCaptureHandler.class);
 
     private final CaptureRepository captures;
+    private final PaymentDecision decision;
+    private final PaymentEventsPublisher events;
 
-    public NaiveCaptureHandler(CaptureRepository captures) {
+    public NaiveCaptureHandler(CaptureRepository captures, PaymentDecision decision, PaymentEventsPublisher events) {
         this.captures = captures;
+        this.decision = decision;
+        this.events = events;
         log.warn("NAIVE capture handler active: redelivered events are captured again. Demo use only.");
     }
 
     @Override
-    public void capture(PaymentRequested event) {
-        Capture capture = captures.insert(event.orderId(), event.eventId(), event.amountCents());
-        log.info("payment captured captureId={} orderId={} eventId={}", capture.id(), capture.orderId(), capture.eventId());
+    public void capture(PaymentRequested event, String correlationId) {
+        String outcome = decision.decide(event.amountCents());
+        if (PaymentCompleted.CAPTURED.equals(outcome)) {
+            Capture capture = captures.insert(event.orderId(), event.eventId(), event.amountCents());
+            log.info("payment captured captureId={} orderId={} eventId={}",
+                    capture.id(), capture.orderId(), capture.eventId());
+        } else {
+            log.info("payment declined orderId={} eventId={}", event.orderId(), event.eventId());
+        }
+        events.completed(event, outcome, correlationId);
     }
 }

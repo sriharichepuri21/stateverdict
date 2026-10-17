@@ -9,7 +9,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Captures each business event at most once, using an inbox table.
+ * Decides each business event at most once, using an inbox table.
  *
  * <p>In one transaction it records the event id in {@code processed_events} with
  * {@code ON CONFLICT DO NOTHING}, and only if that insert took effect does it record the capture.
@@ -29,17 +29,22 @@ public class IdempotentCaptureHandler implements CaptureHandler {
     private static final Logger log = LoggerFactory.getLogger(IdempotentCaptureHandler.class);
 
     private final CaptureRepository captures;
+    private final PaymentDecision decision;
+    private final PaymentEventsPublisher events;
     private final JdbcClient jdbc;
     private final TransactionTemplate transaction;
 
-    public IdempotentCaptureHandler(CaptureRepository captures, JdbcClient jdbc, PlatformTransactionManager txManager) {
+    public IdempotentCaptureHandler(CaptureRepository captures, PaymentDecision decision, PaymentEventsPublisher events,
+                                    JdbcClient jdbc, PlatformTransactionManager txManager) {
         this.captures = captures;
+        this.decision = decision;
+        this.events = events;
         this.jdbc = jdbc;
         this.transaction = new TransactionTemplate(txManager);
     }
 
     @Override
-    public void capture(PaymentRequested event) {
+    public void capture(PaymentRequested event, String correlationId) {
         transaction.executeWithoutResult(status -> {
             int claimed = jdbc.sql("INSERT INTO processed_events (event_id) VALUES (:eventId) ON CONFLICT DO NOTHING")
                     .param("eventId", event.eventId())
@@ -48,9 +53,16 @@ public class IdempotentCaptureHandler implements CaptureHandler {
                 log.info("duplicate payment.requested ignored orderId={} eventId={}", event.orderId(), event.eventId());
                 return;
             }
-            Capture capture = captures.insert(event.orderId(), event.eventId(), event.amountCents());
-            log.info("payment captured captureId={} orderId={} eventId={}",
-                    capture.id(), capture.orderId(), capture.eventId());
+            String outcome = decision.decide(event.amountCents());
+            if (PaymentCompleted.CAPTURED.equals(outcome)) {
+                Capture capture = captures.insert(event.orderId(), event.eventId(), event.amountCents());
+                log.info("payment captured captureId={} orderId={} eventId={}",
+                        capture.id(), capture.orderId(), capture.eventId());
+            } else {
+                log.info("payment declined orderId={} eventId={}", event.orderId(), event.eventId());
+            }
+            // Published once per business event; a skipped duplicate publishes nothing.
+            events.completed(event, outcome, correlationId);
         });
     }
 }

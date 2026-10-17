@@ -22,7 +22,7 @@ import tools.jackson.databind.json.JsonMapper;
 @Component
 public class PaymentRequestedListener {
 
-    static final String TOPIC = "payment.requested";
+    static final String TOPIC = KafkaTopicsConfig.PAYMENT_REQUESTED;
     static final String CORRELATION_HEADER = "correlation-id";
 
     private final CaptureHandler handler;
@@ -39,7 +39,8 @@ public class PaymentRequestedListener {
     public void onRecord(ConsumerRecord<String, String> record) throws Exception {
         PaymentRequested event = json.readValue(record.value(), PaymentRequested.class);
         String runId = header(record, CORRELATION_HEADER);
-        dispatcher.dispatch(new InboundMessage<>(TOPIC, runId, event.eventId().toString(), event), handler::capture);
+        dispatcher.dispatch(new InboundMessage<>(TOPIC, runId, event.eventId().toString(), event),
+                payload -> handler.capture(payload, runId));
     }
 
     private static String header(ConsumerRecord<?, ?> record, String name) {

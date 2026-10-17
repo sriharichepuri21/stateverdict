@@ -13,5 +13,11 @@ public interface CaptureHandler {
 
     String PROPERTY = "payment.capture.handler";
 
-    void capture(PaymentRequested event);
+    /**
+     * Decides the payment, records a capture if it was approved, and publishes
+     * {@code payment.completed}.
+     *
+     * @param correlationId the run id from the consumed record, copied to the published event; may be null
+     */
+    void capture(PaymentRequested event, String correlationId);
 }
