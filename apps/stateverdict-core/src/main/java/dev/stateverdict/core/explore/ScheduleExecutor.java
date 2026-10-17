@@ -1,11 +1,10 @@
 package dev.stateverdict.core.explore;
 
 import dev.stateverdict.core.report.RunReport;
-import dev.stateverdict.core.schedule.Schedule;
 
-/** Runs one schedule and returns its report. In production, {@code ScheduleRunner::run}. */
+/** Runs one schedule and returns its report, e.g. {@code ScheduleRunner::run} or {@code SagaRunner::run}. */
 @FunctionalInterface
-public interface ScheduleExecutor {
+public interface ScheduleExecutor<S> {
 
-    RunReport execute(Schedule schedule) throws InterruptedException;
+    RunReport execute(S schedule) throws InterruptedException;
 }

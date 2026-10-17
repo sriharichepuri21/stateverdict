@@ -1,7 +1,6 @@
 package dev.stateverdict.core.explore;
 
 import dev.stateverdict.core.report.RunReport;
-import dev.stateverdict.core.schedule.Schedule;
 import dev.stateverdict.core.verdict.Verdict;
 import java.util.List;
 import java.util.Map;
@@ -16,12 +15,12 @@ import java.util.Map;
  * @param overall       FAIL if anything violated a rule; otherwise ERROR, INCONCLUSIVE or PASS by the
  *                      usual precedence
  */
-public record ExplorationReport(
+public record ExplorationReport<S>(
         long seed,
         int iterations,
         Map<Verdict, Integer> verdictCounts,
         Map<String, Integer> coverage,
-        List<Finding> findings,
+        List<Finding<S>> findings,
         Verdict overall,
         long durationMs) {
 
@@ -32,7 +31,7 @@ public record ExplorationReport(
      * @param violatedRules ids of the rules this run violated, e.g. {@code [SV-003]}
      * @param savedAs       where the schedule was written, so it can be rerun with run-schedule
      */
-    public record Finding(int iteration, Schedule schedule, String runId, List<String> violatedRules, String savedAs,
+    public record Finding<S>(int iteration, S schedule, String runId, List<String> violatedRules, String savedAs,
                           RunReport report) {
     }
 
