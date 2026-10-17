@@ -18,7 +18,7 @@ import java.util.Map;
  */
 public record TrialSummary(
         String scenario,
-        int copies,
+        String fault,
         int trials,
         Map<Verdict, Integer> verdictCounts,
         Map<ExecutionStatus, Integer> executionCounts,
@@ -42,7 +42,8 @@ public record TrialSummary(
         reports = List.copyOf(reports);
     }
 
-    public static TrialSummary of(String scenario, int copies, List<RunReport> reports) {
+    /** @param fault a short description of the faults applied, e.g. "payment.requested delivered 2 times" */
+    public static TrialSummary of(String scenario, String fault, List<RunReport> reports) {
         if (reports.isEmpty()) {
             throw new IllegalArgumentException("at least one trial is required");
         }
@@ -60,7 +61,7 @@ public record TrialSummary(
         boolean consistent = verdicts.size() == 1;
         Verdict overall = consistent ? verdicts.keySet().iterator().next() : Verdict.INCONCLUSIVE;
         long[] durations = rows.stream().mapToLong(Trial::durationMs).sorted().toArray();
-        return new TrialSummary(scenario, copies, reports.size(), verdicts, executions, consistent, overall,
+        return new TrialSummary(scenario, fault, reports.size(), verdicts, executions, consistent, overall,
                 durations[0], durations[(durations.length - 1) / 2], durations[durations.length - 1], rows, reports);
     }
 
@@ -73,8 +74,7 @@ public record TrialSummary(
         StringBuilder out = new StringBuilder();
         out.append("StateVerdict v").append(RunReport.VERSION).append(": repeated trials\n\n");
         out.append("Scenario: ").append(scenario).append("\n");
-        out.append("Fault:    ").append(copies > 1 ? "payment.requested delivered " + copies + " times" : "none (baseline)")
-                .append("\n");
+        out.append("Fault:    ").append(fault).append("\n");
         out.append("Trials:   ").append(trials).append(", each from clean state (new run id, new order, run reset)\n\n");
         out.append(String.format("  %-5s %-14s %-13s %-12s %-14s %s%n", "#", "run", "verdict", "execution", "observed", "ms"));
         for (Trial trial : trialResults) {

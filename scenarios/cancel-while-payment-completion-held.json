@@ -1,0 +1,10 @@
+{
+  "name": "cancel-while-payment-completion-held",
+  "steps": [
+    { "type": "ARM", "service": "ORDER", "topic": "payment.completed", "fault": { "type": "HOLD" } },
+    { "type": "PLACE_ORDER", "amountCents": 129900 },
+    { "type": "AWAIT_HELD", "service": "ORDER", "topic": "payment.completed", "count": 1 },
+    { "type": "CANCEL" },
+    { "type": "RELEASE_ALL", "service": "ORDER" }
+  ]
+}

@@ -220,7 +220,7 @@ class DuplicateDeliveryScenarioTest {
 
         List<RunReport> reports = List.of(scenario.run(), scenario.run(), scenario.run());
         dev.stateverdict.core.report.TrialSummary summary =
-                dev.stateverdict.core.report.TrialSummary.of(DuplicateDeliveryScenario.NAME, 2, reports);
+                dev.stateverdict.core.report.TrialSummary.of(DuplicateDeliveryScenario.NAME, "payment.requested delivered 2 times", reports);
 
         assertThat(reports).extracting(RunReport::runId).doesNotHaveDuplicates();
         assertThat(summary.count(Verdict.FAIL)).isEqualTo(3);

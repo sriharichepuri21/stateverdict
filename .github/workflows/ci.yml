@@ -86,6 +86,10 @@ jobs:
           if [ "$code" -ne 1 ]; then echo "::error::expected replay FAIL (exit 1), got exit $code"; exit 1; fi
       - name: "StateVerdict: naive handler, 10 clean-state trials each (duplicate must FAIL)"
         run: scripts/measure-reproduction.sh 10 naive
+      - name: "Schedules, naive handlers: cancel race must FAIL (SV-003) on 10/10 trials"
+        run: |
+          scripts/measure-schedule.sh scenarios/checkout-baseline.json 10 PASS baseline-schedule-naive
+          scripts/measure-schedule.sh scenarios/cancel-while-payment-completion-held.json 10 FAIL cancel-race-naive
       - name: Switch the payment service to the idempotent handler
         run: |
           PAYMENT_CAPTURE_HANDLER=idempotent \
@@ -100,6 +104,18 @@ jobs:
           output=$(scripts/duplicate-delivery-demo.sh)
           echo "$output"
           grep -q "1 capture (the handler is idempotent)" <<< "$output"
+      - name: Switch the order service to the guarded completion handler
+        run: |
+          ORDER_COMPLETION_HANDLER=guarded PAYMENT_CAPTURE_HANDLER=idempotent \
+            docker compose -f infrastructure/compose/docker-compose.yml up -d --wait order-service
+          docker compose -f infrastructure/compose/docker-compose.yml exec -T order-service \
+            printenv ORDER_COMPLETION_HANDLER | grep -qx guarded
+          scripts/wait-healthy.sh 8081
+      - name: "Schedules, fixed handlers: every schedule must PASS on 10/10 trials"
+        run: |
+          scripts/measure-schedule.sh scenarios/checkout-baseline.json 10 PASS baseline-schedule-fixed
+          scripts/measure-schedule.sh scenarios/duplicate-payment-request.json 10 PASS duplicate-schedule-fixed
+          scripts/measure-schedule.sh scenarios/cancel-while-payment-completion-held.json 10 PASS cancel-race-fixed
       - name: Upload StateVerdict reports
         if: always()
         uses: actions/upload-artifact@v5

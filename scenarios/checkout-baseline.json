@@ -1,0 +1,6 @@
+{
+  "name": "checkout-baseline",
+  "steps": [
+    { "type": "PLACE_ORDER", "amountCents": 129900 }
+  ]
+}
