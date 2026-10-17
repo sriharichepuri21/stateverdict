@@ -4,10 +4,10 @@ Update this file at the end of every working session (spec section 12, "Session 
 
 ## Current state
 
-- **Branch:** `feat/shrinker`
-- **Phase:** Exploration phase, PR 4 of 4: shrinker (gate 3)
-- **Last green command:** CI run 39005252543 on PR #12: 138 tests; shrink: SV-002 3→1 interventions, SV-003 3→1 (place, cancel), all 10/10
-- **Last failing command:** CI run 38992685990: 6 INCONCLUSIVE per campaign because generated schedules released holds before the message arrived; fixed in validation and generator
+- **Branch:** `feat/evaluation`
+- **Phase:** Gate 4: head-to-head with the conventional suite
+- **Last green command:** evaluation run 39012932752: conventional suite 6/6 defects, 1/3 false alarms; StateVerdict 4/6 defects, 0/3 false alarms; all 9 predictions held
+- **Last failing command:** evaluation runs 39011191806 and 39012056118: mutations not passed into containers, Maven stopping early, SIGPIPE in a log check; all fixed
 
 ## Spike progress
 
@@ -28,7 +28,14 @@ Update this file at the end of every working session (spec section 12, "Session 
 | 1 | Second event flow: `payment.completed`, customer cancellation, naive/guarded completion handlers | Done | PR #9 merged |
 | 2 | Schedules: multi-step runs across both services, rule SV-003 | Done | PR #10 merged |
 | 3 | Explorer: seeded generation of valid schedules (gate 2) | Done | PR #11 merged (squash) |
-| 4 | Shrinker: dependency-aware reduction confirmed by repeated trials (gate 3) | Done (awaiting merge) | PR #12: gate 3 met; `docs/results/shrinking.md` |
+| 4 | Shrinker: dependency-aware reduction confirmed by repeated trials (gate 3) | Done | PR #12 merged |
+
+## Gate 4: evaluation
+
+| # | PR | Status | Evidence |
+|---|----|--------|----------|
+| 1 | Defect corpus (M01–M06, C01–C03) and SV-001 | Done | PR #13 merged |
+| 2 | Head-to-head in CI | Done (awaiting merge) | PR #14: `docs/evaluation/results.md` |
 
 ## Active blocker
 
@@ -36,7 +43,7 @@ None.
 
 ## Next action
 
-Merge PR #12. Exploration phase complete (gates 2 and 3 met). Next candidates: refund rule (cancelled + captured must be refunded), mutation corpus + JUnit baseline (gate 4), external target application.
+Merge PR #14. Then SV-004 (refund required for a cancelled, captured order: closes M04) and a concurrent-delivery intervention (closes M03); rerun the evaluation to show both flip to caught.
 
 ## Open questions (spec appendix B)
 

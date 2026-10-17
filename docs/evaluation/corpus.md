@@ -26,7 +26,8 @@ handlers. Nothing is active by default, and a service logs a warning when any is
 
 ## Predictions, written before measuring
 
-Recorded here so the measured results (next PR) can be checked against them honestly.
+Recorded here so the measured results can be checked against them honestly. **Measured in
+[results.md](results.md): all nine held.**
 
 | Id | StateVerdict (explore seed 42 + example schedules) | Conventional suite (JUnit + Testcontainers) |
 |---|---|---|

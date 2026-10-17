@@ -125,6 +125,22 @@ the order", and the most complex SV-003 finding shrank to just **"place the orde
 failing 10/10. The cancel/confirm race never needed a fault. Details:
 [docs/results/shrinking.md](docs/results/shrinking.md).
 
+## Why not just write JUnit tests?
+
+Measured on a corpus of 6 deliberate defects and 3 harmless changes
+([docs/evaluation/results.md](docs/evaluation/results.md)), with predictions written down first:
+
+| | Defects caught | False alarms |
+|---|---|---|
+| The services' 32 JUnit + Testcontainers tests | **6 / 6** | 1 / 3 |
+| StateVerdict (3 business rules, generated schedules) | 4 / 6 | **0 / 3** |
+
+The JUnit suite was written by the same person who wrote the defects, so it was aimed at them. It also
+raised a false alarm on a harmless change because three tests assert implementation details.
+StateVerdict knew nothing about the code; it missed one concurrency defect (its dispatcher delivers
+duplicates sequentially) and one defect no rule covered. They are complementary: targeted tests for
+known behaviour, generated schedules plus business rules for the combinations nobody wrote a test for.
+
 ## How it works
 
 ```text
@@ -183,7 +199,7 @@ $SV replay-evidence artifacts/dup.json                       # same verdict, no 
 $SV run checkout-duplicate-payment-request --copies 2 --trials 10
 ```
 
-Developing locally with Java 21 and Maven: `mvn -B verify` runs all 138 tests, using Testcontainers
+Developing locally with Java 21 and Maven: `mvn -B verify` runs all 142 tests, using Testcontainers
 for PostgreSQL and Kafka.
 
 ## Status and limits
@@ -192,9 +208,9 @@ The seven-step technical spike from the [specification](docs/specification/State
 is complete; see the [retrospective](docs/results/spike-retrospective.md). Since then: a second event
 flow with customer cancellation, schedules, rule SV-003, the explorer (gate 2 met) and the shrinker
 (gate 3 met). StateVerdict covers two defect classes (duplicate side effects, and an outcome
-overwriting a cancellation), with sequential delivery on a single-partition topology. Next: a refund
-rule (shrinking exposed that a cancelled-but-captured order is never refunded), a mutation corpus and
-a JUnit baseline (gate 4).
+overwriting a cancellation), with sequential delivery on a single-partition topology. Gate 4 has a
+measured head-to-head with the conventional suite. Next: SV-004 (refund for a cancelled, captured
+order), which would catch M04, and a concurrent-delivery intervention, which would catch M03.
 
 ## Guiding principle
 
