@@ -91,6 +91,21 @@ class ControlledDispatchFlowTest {
     }
 
     @Test
+    void concurrentDuplicateDeliversBothCopiesAndTheNaiveHandlerCapturesTwice() throws Exception {
+        String runId = newRunId();
+        PaymentRequested event = newEvent();
+        assertThat(post("/_stateverdict/dispatch/runs/" + runId + "/interventions",
+                "{\"type\": \"DUPLICATE_CONCURRENT\", \"topic\": \"payment.requested\", \"copies\": 2}").statusCode()).isEqualTo(202);
+
+        publish(event, runId);
+
+        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> assertThat(journal(runId)).hasSize(2));
+        assertThat(journal(runId)).extracting(JournalEntry::attempt).containsExactlyInAnyOrder(1, 2);
+        assertThat(journal(runId)).extracting(JournalEntry::outcome).containsOnly(JournalEntry.Outcome.ACKNOWLEDGED);
+        assertThat(captures.findByOrderId(event.orderId())).hasSize(2);
+    }
+
+    @Test
     void holdParksTheEventUntilReleased() throws Exception {
         String runId = newRunId();
         PaymentRequested event = newEvent();
@@ -128,6 +143,8 @@ class ControlledDispatchFlowTest {
     @Test
     void invalidInterventionIsRejected() throws Exception {
         assertThat(post("/_stateverdict/dispatch/runs/r/interventions", "{\"type\": \"DUPLICATE\", \"topic\": \"payment.requested\", \"copies\": 1}")
+                .statusCode()).isEqualTo(400);
+        assertThat(post("/_stateverdict/dispatch/runs/r/interventions", "{\"type\": \"DUPLICATE_CONCURRENT\", \"topic\": \"payment.requested\"}")
                 .statusCode()).isEqualTo(400);
         assertThat(post("/_stateverdict/dispatch/runs/r/interventions", "{\"type\": \"EXPLODE\", \"topic\": \"t\"}")
                 .statusCode()).isEqualTo(400);

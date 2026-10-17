@@ -33,7 +33,7 @@ Recorded here so the measured results can be checked against them honestly. **Me
 |---|---|---|
 | M01 | **detect** (SV-002) | detect: idempotent-handler tests |
 | M02 | **detect** (SV-003) | detect: guarded-handler tests |
-| M03 | **miss**: the dispatcher delivers copies one after another, never concurrently (ADR-002) | **detect**: the 8-concurrent-copies test |
+| M03 | **miss**: the dispatcher delivers copies one after another, never concurrently (ADR-002). *Revised in PR #16, before measuring:* **detect** (SV-002) once generated schedules include `DUPLICATE_CONCURRENT` | **detect**: the 8-concurrent-copies test |
 | M04 | **miss**: no rule says a CONFIRMED order cannot be cancelled or must be refunded | **detect**: "only a pending order can be cancelled" test |
 | M05 | **detect** (SV-001), only if exploration generates a declined amount | detect: "declined payment cancels the order" test |
 | M06 | **detect** (SV-001) | detect: publishing test asserts one capture |

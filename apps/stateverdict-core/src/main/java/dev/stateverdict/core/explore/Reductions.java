@@ -18,8 +18,10 @@ import java.util.Map;
  * that is still invalid afterwards is discarded, so the shrinker never runs an invalid schedule.
  *
  * <p>Candidates are ordered from the biggest reduction to the smallest: remove a whole fault, remove
- * the customer's cancel, stop waiting for an order status, then simplify a fault's parameters (fewer
- * duplicate copies, shorter delay).
+ * the customer's cancel, stop waiting for an order status, then simplify a fault (fewer duplicate
+ * copies, concurrent copies delivered one after another instead, shorter delay). If the shrinker
+ * keeps a concurrent duplicate, the sequential version did not reproduce the failure: the race is
+ * what matters.
  */
 public final class Reductions {
 
@@ -105,6 +107,8 @@ public final class Reductions {
     static Fault simplify(Fault fault) {
         return switch (fault.type()) {
             case Fault.DUPLICATE -> fault.copies() > 2 ? Fault.duplicate(2) : null;
+            case Fault.DUPLICATE_CONCURRENT -> fault.copies() > 2
+                    ? Fault.duplicateConcurrent(2) : Fault.duplicate(fault.copies());
             case Fault.DELAY -> fault.delayMs() > 100 ? Fault.delay(Math.max(100, (fault.delayMs() / 2) / 100 * 100)) : null;
             default -> null;
         };

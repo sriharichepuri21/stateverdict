@@ -24,7 +24,7 @@ Every consumed record passes through a `Dispatcher` before the business handler 
 
 - **`DirectDispatcher`** (production, the default): calls the handler once. No behaviour change.
 - **`ControlledDispatcher`** (test mode only, `stateverdict.dispatch.mode=controlled`): applies
-  interventions armed for a run (`HOLD`, `DUPLICATE`, `DELAY`) and journals every delivery with a
+  interventions armed for a run (`HOLD`, `DUPLICATE`, `DUPLICATE_CONCURRENT`, `DELAY`) and journals every delivery with a
   delivery id, attempt number and handler outcome.
 
 Messages are matched to runs through a `correlation-id` Kafka header, copied from the
@@ -38,6 +38,12 @@ The library is plain Java with no framework dependency; each service wires it in
 - Duplicate copies are delivered **sequentially**, so "the same event, delivered twice" is exactly
   reproducible. This does **not** model two copies processed concurrently by competing consumers;
   that race needs a different mechanism and is out of scope for v1 (spec section 4).
+  **Amended (PR #16):** that mechanism now exists as a separate intervention,
+  `DUPLICATE_CONCURRENT`: each copy runs on its own thread and a start gate releases them
+  together, so the handlers overlap. Plain `DUPLICATE` stays sequential, so both questions can be
+  asked separately: "is a redelivery handled?" and "are two copies at once handled?". The consumer
+  thread waits for every copy, so per-topic ordering of later messages is unchanged. It still models
+  the race at the consumer, not two consumer instances in a group competing for a partition.
 - In controlled mode handler failures are recorded, not rethrown, so the broker never adds
   redeliveries StateVerdict did not ask for. Consequence: controlled mode is unsuitable for anything
   but test environments, which the startup warning and the default of `direct` enforce.

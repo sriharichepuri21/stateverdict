@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -34,6 +35,10 @@ import java.util.concurrent.TimeUnit;
  *   <li>Duplicate copies are delivered sequentially on the consumer's thread, so the second copy
  *       starts only after the first has finished. This makes "same event delivered twice" exactly
  *       reproducible; it does not model two copies racing each other.</li>
+ *   <li>Concurrent duplicate copies each run on their own thread and are released together by a
+ *       start gate, so their handlers overlap. That is the case "check, then act" idempotency gets
+ *       wrong and sequential redelivery can never show. The consumer's thread waits for every copy,
+ *       so the next message on the topic is still dispatched only after this one is done.</li>
  *   <li>Handler failures are recorded in the journal as {@code FAILED} and are <em>not</em>
  *       rethrown. In test mode the journal is the evidence; letting the broker redeliver would
  *       introduce deliveries StateVerdict did not ask for.</li>
@@ -115,6 +120,7 @@ public final class ControlledDispatcher implements Dispatcher, AutoCloseable {
                     deliver(message, handler);
                 }
             }
+            case Intervention.ConcurrentDuplicate duplicate -> deliverConcurrently(message, handler, duplicate.copies());
             case Intervention.Hold hold -> park(message, handler, null);
             case Intervention.Delay delay -> park(message, handler, delay);
         }
@@ -228,6 +234,30 @@ public final class ControlledDispatcher implements Dispatcher, AutoCloseable {
                     runHeld.computeIfPresent(token, (id, held) -> held.withTimer(future));
                 }
             }
+        }
+    }
+
+    /**
+     * Starts one thread per copy. Each thread takes its attempt number, then waits at the gate until
+     * every copy has arrived, so the handlers start together instead of one after another.
+     */
+    private <T> void deliverConcurrently(InboundMessage<T> message, MessageHandler<T> handler, int copies)
+            throws InterruptedException {
+        CountDownLatch gate = new CountDownLatch(copies);
+        MessageHandler<T> gated = payload -> {
+            gate.countDown();
+            // Bounded, so a copy whose thread never started cannot hang the consumer; the copies
+            // that did arrive then run anyway, and the journal still shows every attempt.
+            gate.await(10, TimeUnit.SECONDS);
+            handler.handle(payload);
+        };
+        List<Thread> threads = new ArrayList<>(copies);
+        for (int copy = 1; copy <= copies; copy++) {
+            threads.add(Thread.ofPlatform().daemon().name("stateverdict-concurrent-copy-" + copy)
+                    .start(() -> deliver(message, gated)));
+        }
+        for (Thread thread : threads) {
+            thread.join();
         }
     }
 

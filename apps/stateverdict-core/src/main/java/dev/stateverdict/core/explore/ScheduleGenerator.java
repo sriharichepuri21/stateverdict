@@ -15,8 +15,9 @@ import java.util.Random;
  * <h2>The space it explores</h2>
  * <ul>
  *   <li>For each fault target (the payment service consuming {@code payment.requested}, the order
- *       service consuming {@code payment.completed}): no fault, {@code DUPLICATE} (2 or 3 copies),
- *       {@code DELAY} (100 to 1500 ms) or {@code HOLD}.</li>
+ *       service consuming {@code payment.completed}): no fault, {@code DUPLICATE} (2 or 3 copies, one after
+ *       another), {@code DUPLICATE_CONCURRENT} (2 or 3 copies at the same moment), {@code DELAY}
+ *       (100 to 1500 ms) or {@code HOLD}.</li>
  *   <li>The customer: does not cancel, cancels right after placing the order, cancels while a held
  *       message is parked (only when a {@code HOLD} was chosen), or cancels after the order is
  *       CONFIRMED (only for approved amounts).</li>
@@ -109,10 +110,11 @@ public final class ScheduleGenerator {
     }
 
     private Fault randomFault() {
-        return switch (random.nextInt(5)) {
+        return switch (random.nextInt(6)) {
             case 0, 1 -> null;
             case 2 -> Fault.duplicate(2 + random.nextInt(2));
-            case 3 -> Fault.delay(100 + 100L * random.nextInt(15));
+            case 3 -> Fault.duplicateConcurrent(2 + random.nextInt(2));
+            case 4 -> Fault.delay(100 + 100L * random.nextInt(15));
             default -> Fault.hold();
         };
     }

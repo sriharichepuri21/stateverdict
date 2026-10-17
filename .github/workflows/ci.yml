@@ -102,6 +102,7 @@ jobs:
         run: |
           scripts/measure-schedule.sh scenarios/checkout-baseline.json 10 PASS baseline-schedule-naive
           scripts/measure-schedule.sh scenarios/cancel-while-payment-completion-held.json 10 FAIL cancel-race-naive
+          scripts/measure-schedule.sh scenarios/concurrent-duplicate-payment-request.json 10 FAIL concurrent-duplicate-naive
       - name: "Explorer, naive handlers: 60 generated schedules must find SV-002 and SV-003"
         run: scripts/explore.sh naive 60 42 FAIL SV-002 SV-003
       - name: "Shrinker: reduce explorer findings and confirm each over 10 runs (gate 3)"
@@ -131,6 +132,7 @@ jobs:
         run: |
           scripts/measure-schedule.sh scenarios/checkout-baseline.json 10 PASS baseline-schedule-fixed
           scripts/measure-schedule.sh scenarios/duplicate-payment-request.json 10 PASS duplicate-schedule-fixed
+          scripts/measure-schedule.sh scenarios/concurrent-duplicate-payment-request.json 10 PASS concurrent-duplicate-fixed
           scripts/measure-schedule.sh scenarios/cancel-while-payment-completion-held.json 10 PASS cancel-race-fixed
       - name: "Explorer, fixed handlers: the same 60 schedules must find nothing"
         run: scripts/explore.sh fixed 60 42 PASS

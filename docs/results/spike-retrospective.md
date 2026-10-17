@@ -76,7 +76,7 @@ tests (unit, stub-server and Testcontainers) cover every verdict path.
   across topics, no compensation flows.
 - **No real concurrency in the fault path:** the dispatcher delivers copies sequentially. The
   idempotent handler is separately tested with 8 concurrent copies, but StateVerdict cannot yet
-  *inject* concurrent delivery.
+  *inject* concurrent delivery. *(Closed later: `DUPLICATE_CONCURRENT`, PR #16.)*
 - **Single partition, single consumer** topology (ADR-002).
 - **The rule and the defect were written by the same person.** The negative controls reduce, but do not
   remove, the circularity concern. An independent mutation corpus and an external target application

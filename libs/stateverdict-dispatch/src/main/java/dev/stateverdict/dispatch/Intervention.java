@@ -21,6 +21,19 @@ public sealed interface Intervention {
         }
     }
 
+    /**
+     * Deliver the same message {@code copies} times <em>at the same moment</em>: each copy runs on
+     * its own thread, and all of them wait at a start gate until every copy is ready, so their
+     * handlers overlap. The dispatch returns when every copy has finished.
+     */
+    record ConcurrentDuplicate(int copies) implements Intervention {
+        public ConcurrentDuplicate {
+            if (copies < 2) {
+                throw new IllegalArgumentException("a concurrent duplicate needs at least 2 copies, got " + copies);
+            }
+        }
+    }
+
     /** Park the message and release it automatically after {@code delay}. */
     record Delay(Duration delay) implements Intervention {
         public Delay {
