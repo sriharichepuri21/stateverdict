@@ -2,75 +2,144 @@
 
 **Fault exploration and evidence-based correctness testing for event-driven microservices.**
 
-Every service in a checkout flow can return `200 OK` and the business outcome can still be wrong:
-an order confirmed after the payment was declined, or one purchase charged twice because a message
-was delivered twice. StateVerdict runs business workflows under controlled faults (duplicated,
-delayed and reordered events), checks the committed state of each service against business rules,
-and reports one of four verdicts: **PASS**, **FAIL**, **INCONCLUSIVE** or **ERROR**.
+Every service in a checkout flow can return `200 OK` while the business outcome is still wrong: an
+order confirmed after the payment was declined, or one purchase charged twice because a message was
+delivered twice. StateVerdict makes specific delivery faults happen on demand, judges the outcome from
+each service's **committed state** (not logs, traces or status codes), and reports one of four
+verdicts: **PASS**, **FAIL**, **INCONCLUSIVE** or **ERROR**.
 
-> **Status:** early development. The design is complete
-> ([engineering specification](docs/specification/StateVerdict_Engineering_Specification_v1.0.pdf));
-> implementation is in progress. Nothing below is a measured result yet.
+## What it found
 
-## What's in this repository
+The example payment service has two handlers: a deliberately naive one and an idempotent fix.
+StateVerdict delivered the same `payment.requested` event twice and checked rule **SV-002: at most one
+committed payment capture per order**. 10 clean-state trials per row, measured in CI:
+
+| Payment handler | Fault | PASS | FAIL | INCONCLUSIVE | ERROR |
+|---|---|---|---|---|---|
+| naive | none (negative control) | 10 | 0 | 0 | 0 |
+| naive | event delivered twice | 0 | **10** | 0 | 0 |
+| idempotent | none (negative control) | 10 | 0 | 0 | 0 |
+| idempotent | event delivered twice | **10** | 0 | 0 | 0 |
+
+With the fix, the event is still delivered twice, but only one capture is committed. StateVerdict
+tells a harmless duplicate *delivery* apart from a harmful duplicate *side effect*. Method, CI runs and
+limits: [docs/results/spike-reproduction.md](docs/results/spike-reproduction.md).
+
+Real output of the failing run (from the CI demo job):
+
+```text
+StateVerdict v0.1.0
+
+Scenario:  checkout-duplicate-payment-request (v1)
+Run:       sv-cf886a25
+Faults:    {type=DUPLICATE, topic=payment.requested, copies=2}
+Execution: COMPLETED
+
+Rule SV-002 v1
+  At most one committed payment capture per order
+
+  Expected: at most 1 capture
+  Observed: 2 captures
+  Result:   VIOLATED
+  Why:      Order 949b5491-4492-43b5-a811-3ce47002d0c2 was captured 2 times; captured event ids: aced970e-46c0-4c22-82a1-aa99607eaa77, aced970e-46c0-4c22-82a1-aa99607eaa77.
+  Evidence: payment.captures
+
+Overall verdict: FAIL
+Report:          artifacts/demo-duplicate-naive.json
+Exit code:       1
+```
+
+## Try it: one command
+
+You need Docker (with Compose) and curl. Nothing else, not even Java. A GitHub Codespace works
+out of the box (Code → Codespaces → Create).
+
+```bash
+scripts/demo.sh
+```
+
+It builds everything, starts PostgreSQL, Kafka and both services, and runs four checks:
+
+```text
+1. baseline (naive handler)            expected PASS  got PASS         ok
+2. duplicate (naive handler)           expected FAIL  got FAIL         ok
+3. replay of step 2's evidence         expected FAIL  got FAIL         ok
+4. duplicate (idempotent handler)      expected PASS  got PASS         ok
+
+DEMO OK: the fault is detected against the naive handler and accepted after the fix.
+```
+
+It exits non-zero if any step gives an unexpected verdict, and CI runs it on every pull request. Use
+`KEEP=1 scripts/demo.sh` to leave the stack running afterwards.
+
+## How it works
+
+```text
+                 X-Correlation-Id: <run id>
+StateVerdict ──► order-service ──► Kafka: payment.requested ──► payment-service
+     │                                                              │
+     │  arm fault for the run                    listener ──► Dispatcher ──► capture handler
+     ├────────────────────────────────────────────────────────────►│ (hold / delay / duplicate,
+     │                                                              │  journal every delivery)
+     │  read journal + committed captures (evidence)               │
+     ◄──────────────────────────────────────────────────────────────┘
+     │
+     └─► evaluate rules on frozen evidence ──► verdict + JSON report + exit code
+```
+
+1. **Arm a fault** for one run in the payment service's test-mode dispatcher.
+2. **Trigger** the workflow: place an order tagged with the run id.
+3. **Wait** until the dispatcher journal shows every expected delivery (deadline-bounded).
+4. **Collect evidence** from committed-state APIs. Each record keeps its source, observation time and a
+   SHA-256 of the exact response.
+5. **Evaluate** rules as pure functions of that evidence and derive the verdict.
+
+## Design decisions
+
+| Decision | Why | Record |
+|---|---|---|
+| Faults are injected in a dispatcher *after* Kafka consumption | Exact, per-event control; a network proxy cannot duplicate one specific event | [ADR-002](docs/decisions/ADR-002-controlled-dispatch-after-consumption.md) |
+| Execution status is separate from rule truth | A real violation is never erased by a later infrastructure error; missing evidence is never a PASS | [ADR-004](docs/decisions/ADR-004-execution-and-rule-truth-are-separate.md) |
+| The fix uses an inbox table in the same transaction | Safe under concurrent copies, unlike a "check, then insert" | [ADR-006](docs/decisions/ADR-006-idempotency-with-an-inbox-table.md) |
+| The tool is a modular monolith; the system under test is distributed | Distributed complexity belongs where it is being tested | [ADR-001](docs/decisions/ADR-001-modular-monolith-core.md) |
+
+Verdict precedence: any rule **VIOLATED** → FAIL (exit 1); otherwise infrastructure failure → ERROR
+(exit 3); otherwise timeout or missing evidence → INCONCLUSIVE (exit 2); otherwise PASS (exit 0).
+
+## Repository
 
 | Path | What it is |
 |---|---|
-| `examples/commerce/` | The system under test: small order and payment services that talk through Kafka |
-| `infrastructure/compose/` | Docker Compose for PostgreSQL, Kafka and the services |
-| `docs/decisions/` | Architecture Decision Records |
-| `docs/specification/` | The full engineering specification |
+| `apps/stateverdict-core/` | Runner, evidence, rules, verdicts, replay, CLI (plain Java) |
+| `libs/stateverdict-dispatch/` | Test-mode dispatcher: hold, delay, duplicate, journal |
+| `examples/commerce/` | System under test: order and payment services (Spring Boot 4.1, Java 21) |
+| `infrastructure/compose/` | PostgreSQL 17, Kafka 4.1 (KRaft), services, CLI |
+| `scripts/` | One-command demo, measurement and smoke scripts |
+| `docs/` | ADRs, event contract, measured results, retrospective, full specification |
 
-## Running it
+## Using the CLI directly
 
-You need Docker. The easiest way is a GitHub Codespace (Code → Codespaces → Create), which comes
-with Java 21, Maven and Docker already set up.
-
-```bash
-# Build and start PostgreSQL, Kafka, and both services
-docker compose -f infrastructure/compose/docker-compose.yml up --build -d
-
-# Check both services are healthy
-curl -s localhost:8081/actuator/health   # order-service
-curl -s localhost:8082/actuator/health   # payment-service
-
-# Place one order and check exactly one payment capture is committed
-scripts/checkout-smoke.sh
-
-# Run all tests (uses Testcontainers, so Docker must be running)
-mvn -B verify
-```
-
-## Running StateVerdict
-
-With the Compose stack running, build and run the CLI:
+With the stack running (`KEEP=1 scripts/demo.sh`, or `docker compose -f infrastructure/compose/docker-compose.yml up --build -d`):
 
 ```bash
-mvn -B -q -pl apps/stateverdict-core -am package -DskipTests
-CLI=apps/stateverdict-core/target/stateverdict-core-0.1.0-SNAPSHOT.jar
+SV="docker compose -f infrastructure/compose/docker-compose.yml --profile cli run --rm stateverdict"
 
-# Baseline: no fault injected. Expected: PASS (exit 0)
-java -jar $CLI run checkout-duplicate-payment-request --copies 1
-
-# Deliver the payment request twice. Against the current (deliberately naive) payment
-# handler this is expected to FAIL rule SV-002 (exit 1): one order, two captures.
-java -jar $CLI run checkout-duplicate-payment-request --copies 2 --report artifacts/duplicate.json
-
-# Re-evaluate the saved evidence without touching any service. Same verdict.
-java -jar $CLI replay-evidence artifacts/duplicate.json
+$SV run checkout-duplicate-payment-request --copies 1        # baseline
+$SV run checkout-duplicate-payment-request --copies 2 --report artifacts/dup.json
+$SV replay-evidence artifacts/dup.json                       # same verdict, no services contacted
+$SV run checkout-duplicate-payment-request --copies 2 --trials 10
 ```
 
-Measure how reliably a result reproduces (each trial starts from clean state):
+Developing locally with Java 21 and Maven: `mvn -B verify` runs all 81 tests, using Testcontainers
+for PostgreSQL and Kafka.
 
-```bash
-java -jar $CLI run checkout-duplicate-payment-request --copies 2 --trials 10
-scripts/measure-reproduction.sh 10   # baseline and duplicate, 10 trials each
-```
+## Status and limits
 
-Latest measured results: [docs/results/spike-reproduction.md](docs/results/spike-reproduction.md).
-
-Exit codes: `0` PASS, `1` FAIL, `2` INCONCLUSIVE, `3` ERROR. See
-[ADR-004](docs/decisions/ADR-004-execution-and-rule-truth-are-separate.md) for how verdicts are derived.
+The seven-step technical spike from the [specification](docs/specification/StateVerdict_Engineering_Specification_v1.0.pdf)
+is complete; see the [retrospective](docs/results/spike-retrospective.md). Today StateVerdict covers
+one defect class (duplicate side effects from redelivery), one rule and one scenario, with sequential
+duplicate delivery on a single-partition topology. Generated fault schedules, failure shrinking, a
+mutation corpus and temporal rules are next.
 
 ## Guiding principle
 
