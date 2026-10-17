@@ -103,6 +103,80 @@ class ControlledDispatcherTest {
     }
 
     @Nested
+    class ConcurrentDuplicate {
+
+        @Test
+        void copiesRunAtTheSameTime() throws Exception {
+            // Each copy waits until all three are inside the handler. Sequential delivery could
+            // never get past the first copy's wait, so reaching three proves the handlers overlap.
+            CountDownLatch inside = new CountDownLatch(3);
+            List<Boolean> overlapped = new CopyOnWriteArrayList<>();
+            List<String> threads = new CopyOnWriteArrayList<>();
+            MessageHandler<String> waitsForTheOthers = payload -> {
+                threads.add(Thread.currentThread().getName());
+                inside.countDown();
+                overlapped.add(inside.await(5, TimeUnit.SECONDS));
+            };
+            dispatcher.schedule("run-1", TOPIC, new Intervention.ConcurrentDuplicate(3));
+
+            dispatcher.dispatch(message("run-1", "e1"), waitsForTheOthers);
+
+            assertThat(overlapped).containsExactly(true, true, true);
+            assertThat(threads).doesNotHaveDuplicates().doesNotContain(Thread.currentThread().getName());
+        }
+
+        @Test
+        void dispatchReturnsOnlyWhenEveryCopyHasFinishedAndJournalsEachAttempt() throws Exception {
+            MessageHandler<String> slow = payload -> {
+                Thread.sleep(100);
+                handled.add(payload);
+            };
+            dispatcher.schedule("run-1", TOPIC, new Intervention.ConcurrentDuplicate(2));
+
+            dispatcher.dispatch(message("run-1", "e1"), slow);
+
+            assertThat(handled).containsExactly("payload-e1", "payload-e1");
+            assertThat(dispatcher.journal("run-1"))
+                    .extracting(JournalEntry::attempt)
+                    .containsExactlyInAnyOrder(1, 2);
+            assertThat(dispatcher.journal("run-1"))
+                    .extracting(JournalEntry::entryId).doesNotHaveDuplicates();
+        }
+
+        @Test
+        void aFailingCopyIsJournaledAndTheOtherStillRuns() throws Exception {
+            java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+            MessageHandler<String> oneFails = payload -> {
+                if (calls.incrementAndGet() == 1) {
+                    throw new IllegalStateException("conflict");
+                }
+            };
+            dispatcher.schedule("run-1", TOPIC, new Intervention.ConcurrentDuplicate(2));
+
+            dispatcher.dispatch(message("run-1", "e1"), oneFails);
+
+            assertThat(dispatcher.journal("run-1"))
+                    .extracting(JournalEntry::outcome)
+                    .containsExactlyInAnyOrder(Outcome.FAILED, Outcome.ACKNOWLEDGED);
+        }
+
+        @Test
+        void appliesOnlyToTheNextMatchingMessage() throws Exception {
+            dispatcher.schedule("run-1", TOPIC, new Intervention.ConcurrentDuplicate(2));
+
+            dispatcher.dispatch(message("run-1", "e1"), handler);
+            dispatcher.dispatch(message("run-1", "e2"), handler);
+
+            assertThat(handled).containsExactlyInAnyOrder("payload-e1", "payload-e1", "payload-e2");
+        }
+
+        @Test
+        void fewerThanTwoCopiesIsRejected() {
+            assertThatThrownBy(() -> new Intervention.ConcurrentDuplicate(1)).isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Nested
     class Hold {
 
         @Test

@@ -28,9 +28,9 @@ import org.springframework.web.bind.annotation.RestController;
 public class DispatchControlController {
 
     /**
-     * @param type     {@code HOLD}, {@code DUPLICATE} or {@code DELAY}
+     * @param type     {@code HOLD}, {@code DUPLICATE}, {@code DUPLICATE_CONCURRENT} or {@code DELAY}
      * @param topic    the topic the intervention applies to (required)
-     * @param copies   for {@code DUPLICATE}
+     * @param copies   for {@code DUPLICATE} and {@code DUPLICATE_CONCURRENT}
      * @param delayMs  for {@code DELAY}
      */
     record InterventionRequest(String type, String topic, Integer copies, Long delayMs) {
@@ -102,7 +102,7 @@ public class DispatchControlController {
 
     private static Intervention toIntervention(InterventionRequest request) {
         if (request.type() == null) {
-            throw new IllegalArgumentException("type is required: HOLD, DUPLICATE or DELAY");
+            throw new IllegalArgumentException("type is required: HOLD, DUPLICATE, DUPLICATE_CONCURRENT or DELAY");
         }
         return switch (request.type()) {
             case "HOLD" -> new Intervention.Hold();
@@ -112,6 +112,12 @@ public class DispatchControlController {
                 }
                 yield new Intervention.Duplicate(request.copies());
             }
+            case "DUPLICATE_CONCURRENT" -> {
+                if (request.copies() == null) {
+                    throw new IllegalArgumentException("copies is required for DUPLICATE_CONCURRENT");
+                }
+                yield new Intervention.ConcurrentDuplicate(request.copies());
+            }
             case "DELAY" -> {
                 if (request.delayMs() == null) {
                     throw new IllegalArgumentException("delayMs is required for DELAY");
@@ -119,7 +125,7 @@ public class DispatchControlController {
                 yield new Intervention.Delay(Duration.ofMillis(request.delayMs()));
             }
             default -> throw new IllegalArgumentException(
-                    "unknown type '" + request.type() + "': expected HOLD, DUPLICATE or DELAY");
+                    "unknown type '" + request.type() + "': expected HOLD, DUPLICATE, DUPLICATE_CONCURRENT or DELAY");
         };
     }
 }
