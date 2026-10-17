@@ -1,0 +1,63 @@
+# The external target, patched with the StateVerdict adapter (see README.md). Run prepare.sh first:
+# the services run the jars it builds, so nothing of the target is baked into an image here.
+name: stateverdict-piomin-saga
+
+x-service: &service
+  image: eclipse-temurin:21-jre
+  command: ["java", "-jar", "/app/app.jar"]
+  depends_on:
+    broker:
+      condition: service_healthy
+  environment: &env
+    # The target's own "docker" profile: Kafka at broker:9092.
+    SPRING_PROFILES_ACTIVE: docker
+
+services:
+  broker:
+    # The target's compose file uses an unpinned community image; this is the official image,
+    # pinned, configured the same way (single-node KRaft, topic auto-creation on as by default).
+    image: apache/kafka:4.1.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server broker:9092 > /dev/null 2>&1"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+
+  order-service:
+    <<: *service
+    volumes:
+      - ../../build/targets/piomin-saga/order-service/target/order-service-1.0-SNAPSHOT.jar:/app/app.jar:ro
+    ports:
+      - "8091:8080"
+
+  payment-service:
+    <<: *service
+    environment:
+      <<: *env
+      STATEVERDICT_DISPATCH_MODE: controlled
+    volumes:
+      - ../../build/targets/piomin-saga/payment-service/target/payment-service-1.0-SNAPSHOT.jar:/app/app.jar:ro
+    ports:
+      - "8092:8080"
+
+  stock-service:
+    <<: *service
+    environment:
+      <<: *env
+      STATEVERDICT_DISPATCH_MODE: controlled
+    volumes:
+      - ../../build/targets/piomin-saga/stock-service/target/stock-service-1.0-SNAPSHOT.jar:/app/app.jar:ro
+    ports:
+      - "8093:8080"

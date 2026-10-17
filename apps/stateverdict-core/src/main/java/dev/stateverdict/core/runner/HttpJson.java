@@ -9,10 +9,10 @@ import java.time.Duration;
 import java.util.Map;
 
 /** Minimal HTTP helper for talking to the system under test. */
-final class HttpJson {
+public final class HttpJson {
 
-    record Response(int status, String body) {
-        boolean ok() {
+    public record Response(int status, String body) {
+        public boolean ok() {
             return status >= 200 && status < 300;
         }
     }
@@ -21,11 +21,11 @@ final class HttpJson {
 
     private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
-    Response get(URI uri) throws IOException, InterruptedException {
+    public Response get(URI uri) throws IOException, InterruptedException {
         return send(HttpRequest.newBuilder(uri).timeout(REQUEST_TIMEOUT).GET().build());
     }
 
-    Response post(URI uri, String jsonBody, Map<String, String> headers) throws IOException, InterruptedException {
+    public Response post(URI uri, String jsonBody, Map<String, String> headers) throws IOException, InterruptedException {
         HttpRequest.Builder request = HttpRequest.newBuilder(uri)
                 .timeout(REQUEST_TIMEOUT)
                 .header("Content-Type", "application/json")
@@ -34,7 +34,7 @@ final class HttpJson {
         return send(request.build());
     }
 
-    Response delete(URI uri) throws IOException, InterruptedException {
+    public Response delete(URI uri) throws IOException, InterruptedException {
         return send(HttpRequest.newBuilder(uri).timeout(REQUEST_TIMEOUT).DELETE().build());
     }
 

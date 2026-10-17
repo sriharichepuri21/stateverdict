@@ -4,9 +4,9 @@ Update this file at the end of every working session (spec section 12, "Session 
 
 ## Current state
 
-- **Branch:** `feat/concurrent-delivery`
-- **Phase:** Gate 4 complete: 6/6 defects, 0/3 false alarms
-- **Last green command:** CI 39056506235 + evaluation 39056506247 on PR #16: 163 tests; StateVerdict 6/6 defects, 0/3 false alarms; M03 concurrent FAIL 10/10, sequential PASS 10/10
+- **Branch:** `feat/external-target-piomin-saga`
+- **Phase:** External validation: piomin/sample-spring-kafka-microservices
+- **Last green command:** CI 39062748329 on PR #17: 178 tests; external target 8/8 predictions held, each 10/10
 - **Last failing command:** none on PR #16
 
 ## Spike progress
@@ -37,7 +37,14 @@ Update this file at the end of every working session (spec section 12, "Session 
 | 1 | Defect corpus (M01–M06, C01–C03) and SV-001 | Done | PR #13 merged |
 | 2 | Head-to-head in CI | Done | PR #14 merged |
 | 3 | Refund flow, SV-004, cancel-after-confirmed (closes M04) | Done | PR #15 merged |
-| 4 | Concurrent delivery (closes M03) | Done (awaiting merge) | PR #16: 6/6 defects, 0/3 false alarms |
+| 4 | Concurrent delivery (closes M03) | Done | PR #16 merged |
+
+## External validation
+
+| # | PR | Status | Evidence |
+|---|----|--------|----------|
+| 1 | piomin saga: adapter, saga runner, SAGA-1..3, hand-written schedules | Done (awaiting merge) | PR #17: 8/8 predictions held, each 10/10 |
+| 2 | Generated exploration and shrinking against the target | Not started | |
 
 ## Active blocker
 
@@ -45,7 +52,7 @@ None.
 
 ## Next action
 
-Merge PR #16. Then candidates: a README/demo pass for readers new to the project, and validation against an external open-source service.
+Merge PR #17; the owner reviews and posts targets/piomin-saga/ISSUE_DRAFT.md. Then make the explorer and shrinker generic and run them against the target.
 
 ## Open questions (spec appendix B)
 
@@ -56,4 +63,4 @@ Merge PR #16. Then candidates: a README/demo pass for readers new to the project
 - [x] Source of committed payment captures: **Decision:** payment-service `GET /captures?orderId=` backed by the `payment_captures` table. Reset boundary still open.
 - [ ] Clock model for bounded temporal assertions.
 - [x] Definition of a valid schedule: **Decision:** `Schedule.problems()` (one order, arms before it, waits only for armed holds, every hold released). The explorer generates within it; the shrinker must preserve it.
-- [ ] Which open-source target, if any, to use for external validation.
+- [x] Which open-source target to use for external validation: **piomin/sample-spring-kafka-microservices** (PR #17).

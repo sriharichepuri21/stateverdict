@@ -1,0 +1,239 @@
+StateVerdict adapter for piomin/sample-spring-kafka-microservices at commit
+a76daeb2517a2d4656f8f1a8a1b1385bc41c8ea9.
+
+Copyright (C) Piotr Minkowski and contributors (the original program).
+Modifications Copyright (C) 2026 Srihari Chepuri.
+
+This patch modifies a program licensed under the GNU General Public License v3.0, and is itself
+licensed under GPL-3.0 (see LICENSE-GPL-3.0.md in this directory). It is not part of StateVerdict's
+Apache-2.0 code. Apply with: git apply adapter.patch
+
+diff --git a/order-service/src/main/java/pl/piomin/order/controller/OrderController.java b/order-service/src/main/java/pl/piomin/order/controller/OrderController.java
+index 71877a5..1ebcd09 100644
+--- a/order-service/src/main/java/pl/piomin/order/controller/OrderController.java
++++ b/order-service/src/main/java/pl/piomin/order/controller/OrderController.java
+@@ -36,7 +36,9 @@ public class OrderController {
+ 
+     @PostMapping
+     public Order create(@RequestBody Order order) {
+-        order.setId(id.incrementAndGet());
++        if (order.getId() == null) { // StateVerdict adapter: a test run chooses its own order id
++            order.setId(id.incrementAndGet());
++        }
+         template.send("orders", order.getId(), order);
+         LOG.info("Sent: {}", order);
+         return order;
+diff --git a/payment-service/pom.xml b/payment-service/pom.xml
+index 502608e..591fe86 100644
+--- a/payment-service/pom.xml
++++ b/payment-service/pom.xml
+@@ -40,6 +40,12 @@
+             <groupId>com.fasterxml.jackson.core</groupId>
+             <artifactId>jackson-databind</artifactId>
+         </dependency>
++        <!-- StateVerdict adapter: lets test runs hold, delay or duplicate consumed messages. -->
++        <dependency>
++            <groupId>dev.stateverdict</groupId>
++            <artifactId>stateverdict-dispatch-spring</artifactId>
++            <version>0.1.0-SNAPSHOT</version>
++        </dependency>
+         <dependency>
+             <groupId>pl.piomin</groupId>
+             <artifactId>base-domain</artifactId>
+diff --git a/payment-service/src/main/java/pl/piomin/payment/PaymentApp.java b/payment-service/src/main/java/pl/piomin/payment/PaymentApp.java
+index bf9a3fc..314d403 100644
+--- a/payment-service/src/main/java/pl/piomin/payment/PaymentApp.java
++++ b/payment-service/src/main/java/pl/piomin/payment/PaymentApp.java
+@@ -7,6 +7,8 @@ import org.slf4j.LoggerFactory;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.SpringApplication;
+ import org.springframework.boot.autoconfigure.SpringBootApplication;
++import dev.stateverdict.dispatch.Dispatcher;
++import dev.stateverdict.dispatch.InboundMessage;
+ import org.springframework.kafka.annotation.KafkaListener;
+ import pl.piomin.base.domain.Order;
+ import pl.piomin.payment.domain.Customer;
+@@ -28,8 +30,20 @@ public class PaymentApp {
+     OrderManageService orderManageService;
+ 
+     @KafkaListener(id = "orders", topics = "orders", groupId = "payment")
+-    public void onEvent(Order o) {
++    public void onEvent(Order o) throws Exception {
+         LOG.info("Received: {}" , o);
++        // StateVerdict adapter: route the message through the dispatcher (direct mode by default:
++        // one delivery, as before). Each delivery gets its own copy, because a redelivered Kafka
++        // record is deserialized afresh and the handlers below modify the order they are given.
++        String phase = o.getStatus().equals("NEW") ? "orders.reserve" : "orders.settle";
++        dispatcher.dispatch(new InboundMessage<>(phase, "order-" + o.getId(), phase + ":" + o.getId(), o),
++                order -> handle(StateVerdictSupport.copy(order)));
++    }
++
++    @Autowired
++    Dispatcher dispatcher;
++
++    private void handle(Order o) {
+         if (o.getStatus().equals("NEW"))
+             orderManageService.reserve(o);
+         else
+diff --git a/payment-service/src/main/java/pl/piomin/payment/StateVerdictSupport.java b/payment-service/src/main/java/pl/piomin/payment/StateVerdictSupport.java
+new file mode 100644
+index 0000000..6189387
+--- /dev/null
++++ b/payment-service/src/main/java/pl/piomin/payment/StateVerdictSupport.java
+@@ -0,0 +1,49 @@
++package pl.piomin.payment;
++
++import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
++import org.springframework.http.ResponseEntity;
++import org.springframework.web.bind.annotation.GetMapping;
++import org.springframework.web.bind.annotation.PathVariable;
++import org.springframework.web.bind.annotation.PostMapping;
++import org.springframework.web.bind.annotation.RequestBody;
++import org.springframework.web.bind.annotation.RequestMapping;
++import org.springframework.web.bind.annotation.RestController;
++import pl.piomin.base.domain.Order;
++import pl.piomin.payment.domain.Customer;
++import pl.piomin.payment.repository.CustomerRepository;
++
++/**
++ * StateVerdict adapter (test mode only): create a fresh customer for a run and read its committed
++ * state back. Exists only when stateverdict.dispatch.mode=controlled.
++ */
++@RestController
++@RequestMapping("/_stateverdict/customers")
++@ConditionalOnProperty(name = "stateverdict.dispatch.mode", havingValue = "controlled")
++public class StateVerdictSupport {
++
++    public record NewCustomer(int amountAvailable) {
++    }
++
++    private final CustomerRepository repository;
++
++    public StateVerdictSupport(CustomerRepository repository) {
++        this.repository = repository;
++    }
++
++    @PostMapping
++    public Customer create(@RequestBody NewCustomer request) {
++        return repository.save(new Customer(null, "stateverdict", request.amountAvailable(), 0));
++    }
++
++    @GetMapping("/{id}")
++    public ResponseEntity<Customer> get(@PathVariable Long id) {
++        return ResponseEntity.of(repository.findById(id));
++    }
++
++    static Order copy(Order o) {
++        Order copy = new Order(o.getId(), o.getCustomerId(), o.getProductId(), o.getProductCount(), o.getPrice());
++        copy.setStatus(o.getStatus());
++        copy.setSource(o.getSource());
++        return copy;
++    }
++}
+diff --git a/stock-service/pom.xml b/stock-service/pom.xml
+index 243d3f4..dea79aa 100644
+--- a/stock-service/pom.xml
++++ b/stock-service/pom.xml
+@@ -40,6 +40,12 @@
+             <groupId>com.fasterxml.jackson.core</groupId>
+             <artifactId>jackson-databind</artifactId>
+         </dependency>
++        <!-- StateVerdict adapter: lets test runs hold, delay or duplicate consumed messages. -->
++        <dependency>
++            <groupId>dev.stateverdict</groupId>
++            <artifactId>stateverdict-dispatch-spring</artifactId>
++            <version>0.1.0-SNAPSHOT</version>
++        </dependency>
+         <dependency>
+             <groupId>pl.piomin</groupId>
+             <artifactId>base-domain</artifactId>
+diff --git a/stock-service/src/main/java/pl/piomin/stock/StateVerdictSupport.java b/stock-service/src/main/java/pl/piomin/stock/StateVerdictSupport.java
+new file mode 100644
+index 0000000..6232081
+--- /dev/null
++++ b/stock-service/src/main/java/pl/piomin/stock/StateVerdictSupport.java
+@@ -0,0 +1,49 @@
++package pl.piomin.stock;
++
++import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
++import org.springframework.http.ResponseEntity;
++import org.springframework.web.bind.annotation.GetMapping;
++import org.springframework.web.bind.annotation.PathVariable;
++import org.springframework.web.bind.annotation.PostMapping;
++import org.springframework.web.bind.annotation.RequestBody;
++import org.springframework.web.bind.annotation.RequestMapping;
++import org.springframework.web.bind.annotation.RestController;
++import pl.piomin.base.domain.Order;
++import pl.piomin.stock.domain.Product;
++import pl.piomin.stock.repository.ProductRepository;
++
++/**
++ * StateVerdict adapter (test mode only): create a fresh product for a run and read its committed
++ * state back. Exists only when stateverdict.dispatch.mode=controlled.
++ */
++@RestController
++@RequestMapping("/_stateverdict/products")
++@ConditionalOnProperty(name = "stateverdict.dispatch.mode", havingValue = "controlled")
++public class StateVerdictSupport {
++
++    public record NewProduct(int availableItems) {
++    }
++
++    private final ProductRepository repository;
++
++    public StateVerdictSupport(ProductRepository repository) {
++        this.repository = repository;
++    }
++
++    @PostMapping
++    public Product create(@RequestBody NewProduct request) {
++        return repository.save(new Product(null, "stateverdict", request.availableItems(), 0));
++    }
++
++    @GetMapping("/{id}")
++    public ResponseEntity<Product> get(@PathVariable Long id) {
++        return ResponseEntity.of(repository.findById(id));
++    }
++
++    static Order copy(Order o) {
++        Order copy = new Order(o.getId(), o.getCustomerId(), o.getProductId(), o.getProductCount(), o.getPrice());
++        copy.setStatus(o.getStatus());
++        copy.setSource(o.getSource());
++        return copy;
++    }
++}
+diff --git a/stock-service/src/main/java/pl/piomin/stock/StockApp.java b/stock-service/src/main/java/pl/piomin/stock/StockApp.java
+index bc2b0a8..13ef2f3 100644
+--- a/stock-service/src/main/java/pl/piomin/stock/StockApp.java
++++ b/stock-service/src/main/java/pl/piomin/stock/StockApp.java
+@@ -6,6 +6,8 @@ import org.slf4j.LoggerFactory;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.SpringApplication;
+ import org.springframework.boot.autoconfigure.SpringBootApplication;
++import dev.stateverdict.dispatch.Dispatcher;
++import dev.stateverdict.dispatch.InboundMessage;
+ import org.springframework.kafka.annotation.KafkaListener;
+ import pl.piomin.base.domain.Order;
+ import pl.piomin.stock.domain.Product;
+@@ -27,8 +29,20 @@ public class StockApp {
+     OrderManageService orderManageService;
+ 
+     @KafkaListener(id = "orders", topics = "orders", groupId = "stock")
+-    public void onEvent(Order o) {
++    public void onEvent(Order o) throws Exception {
+         LOG.info("Received: {}" , o);
++        // StateVerdict adapter: route the message through the dispatcher (direct mode by default:
++        // one delivery, as before). Each delivery gets its own copy, because a redelivered Kafka
++        // record is deserialized afresh and the handlers below modify the order they are given.
++        String phase = o.getStatus().equals("NEW") ? "orders.reserve" : "orders.settle";
++        dispatcher.dispatch(new InboundMessage<>(phase, "order-" + o.getId(), phase + ":" + o.getId(), o),
++                order -> handle(StateVerdictSupport.copy(order)));
++    }
++
++    @Autowired
++    Dispatcher dispatcher;
++
++    private void handle(Order o) {
+         if (o.getStatus().equals("NEW"))
+             orderManageService.reserve(o);
+         else

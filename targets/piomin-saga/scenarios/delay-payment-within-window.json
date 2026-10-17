@@ -1,0 +1,2 @@
+{ "name": "delay-payment-within-window", "order": { "price": 100, "count": 1, "funds": 1000, "stock": 10 },
+  "arms": [ { "service": "PAYMENT", "phase": "orders.reserve", "fault": { "type": "DELAY", "delayMs": 2000 } } ] }

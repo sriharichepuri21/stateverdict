@@ -1,0 +1,9 @@
+StateVerdict
+Copyright 2026 Srihari Chepuri
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+targets/piomin-saga/adapter.patch modifies a third-party program licensed under the GNU General
+Public License v3.0 and is itself licensed under GPL-3.0 (see targets/piomin-saga/LICENSE-GPL-3.0.md).
+It is not part of StateVerdict's Apache-2.0 code. The third-party program is not included in this
+repository; it is downloaded at build time.

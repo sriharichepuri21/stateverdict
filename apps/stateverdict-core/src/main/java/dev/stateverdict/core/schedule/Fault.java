@@ -32,7 +32,7 @@ public record Fault(String type, Integer copies, Long delayMs) {
     }
 
     /** Problems with this fault, empty if valid. */
-    java.util.List<String> problems() {
+    public java.util.List<String> problems() {
         if (type == null) {
             return java.util.List.of("fault type is required");
         }
