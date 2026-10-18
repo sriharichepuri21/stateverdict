@@ -1,0 +1,230 @@
+{
+  "workflow": "exploration",
+  "status": "complete",
+  "citable": true,
+  "reason": "",
+  "run": {
+    "id": "39104915684",
+    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/39104915684",
+    "commit": "5bf862b7ff91458e33e9e2b98460df86bdba117c",
+    "event": "workflow_dispatch"
+  },
+  "commerce": {
+    "naive": {
+      "seed": 42,
+      "schedules": 60,
+      "verdicts": {
+        "FAIL": 35,
+        "PASS": 25
+      },
+      "findings": 35,
+      "rulesViolated": [
+        "SV-002",
+        "SV-003",
+        "SV-004"
+      ]
+    },
+    "fixed": {
+      "seed": 42,
+      "schedules": 60,
+      "verdicts": {
+        "PASS": 60
+      },
+      "findings": 0,
+      "rulesViolated": []
+    },
+    "shrinks": {
+      "no-fault": {
+        "status": "MINIMIZED",
+        "targetRules": [
+          "SV-003"
+        ],
+        "originalFailures": 10,
+        "minimizedFailures": 10,
+        "confirmTrials": 10,
+        "minimized": {
+          "name": "explore-s42-21-min",
+          "steps": [
+            {
+              "type": "PLACE_ORDER",
+              "amountCents": 129900
+            },
+            {
+              "type": "CANCEL"
+            }
+          ],
+          "valid": true
+        }
+      },
+      "sv-002": {
+        "status": "MINIMIZED",
+        "targetRules": [
+          "SV-002"
+        ],
+        "originalFailures": 10,
+        "minimizedFailures": 10,
+        "confirmTrials": 10,
+        "minimized": {
+          "name": "explore-s42-12-min",
+          "steps": [
+            {
+              "type": "ARM",
+              "service": "PAYMENT",
+              "topic": "payment.requested",
+              "fault": {
+                "type": "DUPLICATE",
+                "copies": 2,
+                "delayMs": null
+              }
+            },
+            {
+              "type": "PLACE_ORDER",
+              "amountCents": 129900
+            }
+          ],
+          "valid": true
+        }
+      },
+      "sv-003": {
+        "status": "MINIMIZED",
+        "targetRules": [
+          "SV-003"
+        ],
+        "originalFailures": 10,
+        "minimizedFailures": 10,
+        "confirmTrials": 10,
+        "minimized": {
+          "name": "explore-s42-29-min",
+          "steps": [
+            {
+              "type": "PLACE_ORDER",
+              "amountCents": 129900
+            },
+            {
+              "type": "CANCEL"
+            }
+          ],
+          "valid": true
+        }
+      }
+    }
+  },
+  "external": {
+    "explore": {
+      "seed": 42,
+      "schedules": 60,
+      "verdicts": {
+        "FAIL": 44,
+        "PASS": 16
+      },
+      "findings": 44,
+      "rulesViolated": [
+        "SAGA-1",
+        "SAGA-2",
+        "SAGA-3"
+      ]
+    },
+    "shrinks": {
+      "saga-1-undecided": {
+        "status": "MINIMIZED",
+        "targetRules": [
+          "SAGA-1"
+        ],
+        "originalFailures": 10,
+        "minimizedFailures": 10,
+        "confirmTrials": 10,
+        "minimized": {
+          "name": "saga-s42-11-min",
+          "order": {
+            "price": 100,
+            "count": 1,
+            "funds": 1000,
+            "stock": 10
+          },
+          "arms": [
+            {
+              "service": "PAYMENT",
+              "phase": "orders.reserve",
+              "fault": {
+                "type": "DELAY",
+                "copies": null,
+                "delayMs": 12000
+              }
+            }
+          ],
+          "valid": true
+        }
+      },
+      "saga-2-faults": {
+        "status": "MINIMIZED",
+        "targetRules": [
+          "SAGA-2"
+        ],
+        "originalFailures": 10,
+        "minimizedFailures": 10,
+        "confirmTrials": 10,
+        "minimized": {
+          "name": "saga-s42-10-min",
+          "order": {
+            "price": 100,
+            "count": 1,
+            "funds": 1000,
+            "stock": 10
+          },
+          "arms": [
+            {
+              "service": "STOCK",
+              "phase": "orders.reserve",
+              "fault": {
+                "type": "DUPLICATE",
+                "copies": 2,
+                "delayMs": null
+              }
+            }
+          ],
+          "valid": true
+        }
+      },
+      "saga-2-rejected": {
+        "status": "MINIMIZED",
+        "targetRules": [
+          "SAGA-2"
+        ],
+        "originalFailures": 10,
+        "minimizedFailures": 10,
+        "confirmTrials": 10,
+        "minimized": {
+          "name": "saga-s42-23-min",
+          "order": {
+            "price": 5000,
+            "count": 1,
+            "funds": 1000,
+            "stock": 10
+          },
+          "arms": [],
+          "valid": true
+        }
+      },
+      "saga-3-rejected": {
+        "status": "MINIMIZED",
+        "targetRules": [
+          "SAGA-3"
+        ],
+        "originalFailures": 10,
+        "minimizedFailures": 10,
+        "confirmTrials": 10,
+        "minimized": {
+          "name": "saga-s42-9-min",
+          "order": {
+            "price": 100,
+            "count": 20,
+            "funds": 1000,
+            "stock": 10
+          },
+          "arms": [],
+          "valid": true
+        }
+      }
+    }
+  }
+}
