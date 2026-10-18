@@ -4,18 +4,18 @@
   "citable": true,
   "reason": "",
   "run": {
-    "id": "39104915684",
-    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/39104915684",
-    "commit": "5bf862b7ff91458e33e9e2b98460df86bdba117c",
-    "event": "workflow_dispatch"
+    "id": "39131190403",
+    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/39131190403",
+    "commit": "2e18be4366b4db2ca2b496d4f4df1a433bf17689",
+    "event": "schedule"
   },
   "commerce": {
     "naive": {
       "seed": 42,
       "schedules": 60,
       "verdicts": {
-        "FAIL": 35,
-        "PASS": 25
+        "PASS": 25,
+        "FAIL": 35
       },
       "findings": 35,
       "rulesViolated": [
@@ -35,15 +35,15 @@
     },
     "shrinks": {
       "no-fault": {
-        "status": "MINIMIZED",
+        "status": "UNRELIABLE",
         "targetRules": [
           "SV-003"
         ],
-        "originalFailures": 10,
-        "minimizedFailures": 10,
+        "originalFailures": 9,
+        "minimizedFailures": 9,
         "confirmTrials": 10,
         "minimized": {
-          "name": "explore-s42-21-min",
+          "name": "explore-s42-21",
           "steps": [
             {
               "type": "PLACE_ORDER",
