@@ -4,8 +4,8 @@ Update this file at the end of every working session (spec section 12, "Session 
 
 ## Current state
 
-- **Branch:** `feat/explore-external-target`
-- **Phase:** External validation: piomin/sample-spring-kafka-microservices
+- **Branch:** `docs/readme-polish`
+- **Phase:** Presentation: README for non-specialists, animated SVGs, interactive explainer on GitHub Pages
 - **Last green command:** CI 39072498345 on PR #18: 184 tests; explore-saga seed 42 FAIL 45/60; four shrinks to one cause each, 10/10
 - **Last failing command:** none on PR #16
 
@@ -44,7 +44,7 @@ Update this file at the end of every working session (spec section 12, "Session 
 | # | PR | Status | Evidence |
 |---|----|--------|----------|
 | 1 | piomin saga: adapter, saga runner, SAGA-1..3, hand-written schedules | Done | PR #17 merged |
-| 2 | Generic explorer and shrinker (ScheduleSpace), explored and shrunk against the target | Done (awaiting merge) | PR #18: 45/60 FAIL; 4 minimal causes, 10/10; one unpredicted |
+| 2 | Generic explorer and shrinker (ScheduleSpace), explored and shrunk against the target | Done | PR #18 merged |
 
 ## Active blocker
 
@@ -52,7 +52,7 @@ None.
 
 ## Next action
 
-Merge PR #18. Owner to review and post targets/piomin-saga/ISSUE_DRAFT.md when ready. Candidates next: a recruiter-facing README and demo pass; a second external target (Eventuate Tram).
+Merge the README PR; the owner enables GitHub Pages (Settings → Pages → Source: GitHub Actions) so the explainer is published. Owner to review and post targets/piomin-saga/ISSUE_DRAFT.md when ready.
 
 ## Open questions (spec appendix B)
 

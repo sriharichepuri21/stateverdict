@@ -1,0 +1,168 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 300" width="880" height="300" role="img"
+  aria-label="Animation: a payment message is delivered twice. Without the fix the customer is charged twice and StateVerdict reports FAIL; with the fix the duplicate is ignored and it reports PASS.">
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
+    
+    @keyframes e1 {
+      0%, 2.44% { opacity: 0; transform: translateX(238px); }
+      2.50% { opacity: 1; transform: translateX(238px); }
+      13.75% { opacity: 1; transform: translateX(600px); }
+      15.62%, 100% { opacity: 0; transform: translateX(600px); }
+    }
+    @keyframes e2 {
+      0%, 9.94% { opacity: 0; transform: translateX(418px); }
+      10.00% { opacity: 1; transform: translateX(418px); }
+      20.00% { opacity: 1; transform: translateX(600px); }
+      21.88%, 100% { opacity: 0; transform: translateX(600px); }
+    }
+    @keyframes f1 {
+      0%, 52.44% { opacity: 0; transform: translateX(238px); }
+      52.50% { opacity: 1; transform: translateX(238px); }
+      63.75% { opacity: 1; transform: translateX(600px); }
+      65.62%, 100% { opacity: 0; transform: translateX(600px); }
+    }
+    @keyframes f2 {
+      0%, 59.94% { opacity: 0; transform: translateX(418px); }
+      60.00% { opacity: 1; transform: translateX(418px); }
+      70.00% { opacity: 1; transform: translateX(600px); }
+      71.88%, 100% { opacity: 0; transform: translateX(600px); }
+    }
+    @keyframes cap1 {
+      0%, -0.06% { opacity: 0; }
+      1.56% { opacity: 1; }
+      46.25% { opacity: 1; }
+      48.75%, 100% { opacity: 0; }
+    }
+    @keyframes cap2 {
+      0%, 49.94% { opacity: 0; }
+      51.56% { opacity: 1; }
+      96.25% { opacity: 1; }
+      98.75%, 100% { opacity: 0; }
+    }
+    @keyframes sv1 {
+      0%, 8.06% { opacity: 0; }
+      9.69% { opacity: 1; }
+      18.75% { opacity: 1; }
+      21.25%, 100% { opacity: 0; }
+    }
+    @keyframes sv2 {
+      0%, 58.06% { opacity: 0; }
+      59.69% { opacity: 1; }
+      68.75% { opacity: 1; }
+      71.25%, 100% { opacity: 0; }
+    }
+    @keyframes r11 {
+      0%, 13.69% { opacity: 0; }
+      15.31% { opacity: 1; }
+      46.25% { opacity: 1; }
+      48.75%, 100% { opacity: 0; }
+    }
+    @keyframes r12 {
+      0%, 19.94% { opacity: 0; }
+      21.56% { opacity: 1; }
+      46.25% { opacity: 1; }
+      48.75%, 100% { opacity: 0; }
+    }
+    @keyframes r21 {
+      0%, 63.69% { opacity: 0; }
+      65.31% { opacity: 1; }
+      96.25% { opacity: 1; }
+      98.75%, 100% { opacity: 0; }
+    }
+    @keyframes r22 {
+      0%, 69.94% { opacity: 0; }
+      71.56% { opacity: 1; }
+      96.25% { opacity: 1; }
+      98.75%, 100% { opacity: 0; }
+    }
+    @keyframes st1 {
+      0%, 24.94% { opacity: 0; transform: translate(440px, 240px) rotate(-8deg) scale(1.6); }
+      27.19% { opacity: 1; transform: translate(440px, 240px) rotate(-8deg) scale(1); }
+      46.25% { opacity: 1; transform: translate(440px, 240px) rotate(-8deg) scale(1); }
+      48.75%, 100% { opacity: 0; transform: translate(440px, 240px) rotate(-8deg) scale(1); }
+    }
+    @keyframes st2 {
+      0%, 74.94% { opacity: 0; transform: translate(440px, 240px) rotate(-8deg) scale(1.6); }
+      77.19% { opacity: 1; transform: translate(440px, 240px) rotate(-8deg) scale(1); }
+      96.25% { opacity: 1; transform: translate(440px, 240px) rotate(-8deg) scale(1); }
+      98.75%, 100% { opacity: 0; transform: translate(440px, 240px) rotate(-8deg) scale(1); }
+    }
+    @media (prefers-reduced-motion: reduce) { g { animation: none !important; } }
+  </style>
+  <rect width="880" height="300" rx="14" fill="#121A18"/>
+  <g style="animation: cap1 16s linear infinite; opacity: 0">
+    <text x="40" y="44" font-size="18" font-weight="700" fill="#E3ECE8">Without the fix: the payment message arrives twice</text>
+  </g>
+  <g style="animation: cap2 16s linear infinite; opacity: 0">
+    <text x="40" y="44" font-size="18" font-weight="700" fill="#E3ECE8">With the fix: the same duplicate, one charge</text>
+  </g>
+
+  <rect x="40" y="76" width="190" height="64" rx="10" fill="#1A2522" stroke="#2F3D39"/>
+  <text x="135" y="104" text-anchor="middle" font-size="15" font-weight="700" fill="#E3ECE8">Order service</text>
+  <text x="135" y="124" text-anchor="middle" font-size="12" fill="#9AAAA4">customer buys shoes</text>
+
+  <line x1="230" y1="108" x2="640" y2="108" stroke="#2F3D39" stroke-width="2" stroke-dasharray="4 6"/>
+  <rect x="390" y="54" width="100" height="22" rx="11" fill="#121A18" stroke="#2F3D39"/>
+  <text x="440" y="69" text-anchor="middle" font-size="11" fill="#9AAAA4">message queue</text>
+
+  <g style="animation: sv1 16s linear infinite; opacity: 0">
+    <rect x="352" y="150" width="176" height="28" rx="14" fill="none" stroke="#9C93FF" stroke-width="1.5"/>
+    <text x="440" y="169" text-anchor="middle" font-size="12" font-weight="600" fill="#9C93FF">StateVerdict: deliver it again</text>
+  </g>
+  <g style="animation: sv2 16s linear infinite; opacity: 0">
+    <rect x="352" y="150" width="176" height="28" rx="14" fill="none" stroke="#9C93FF" stroke-width="1.5"/>
+    <text x="440" y="169" text-anchor="middle" font-size="12" font-weight="600" fill="#9C93FF">StateVerdict: deliver it again</text>
+  </g>
+
+  <g style="animation: e1 16s linear infinite; opacity: 0">
+      <rect x="0" y="86" width="72" height="34" rx="6" fill="#5B9BD0"/>
+      <path d="M4 90 L36 108 L68 90" fill="none" stroke="#0E1513" stroke-width="2" opacity=".75"/>
+      <text x="36" y="134" text-anchor="middle" font-size="11" fill="#9AAAA4">pay $129</text>
+    </g><g style="animation: e2 16s linear infinite; opacity: 0">
+      <rect x="0" y="86" width="72" height="34" rx="6" fill="#5B9BD0"/>
+      <path d="M4 90 L36 108 L68 90" fill="none" stroke="#0E1513" stroke-width="2" opacity=".75"/>
+      <text x="36" y="134" text-anchor="middle" font-size="11" fill="#9AAAA4">pay $129</text>
+    </g><g style="animation: f1 16s linear infinite; opacity: 0">
+      <rect x="0" y="86" width="72" height="34" rx="6" fill="#5B9BD0"/>
+      <path d="M4 90 L36 108 L68 90" fill="none" stroke="#0E1513" stroke-width="2" opacity=".75"/>
+      <text x="36" y="134" text-anchor="middle" font-size="11" fill="#9AAAA4">pay $129</text>
+    </g><g style="animation: f2 16s linear infinite; opacity: 0">
+      <rect x="0" y="86" width="72" height="34" rx="6" fill="#5B9BD0"/>
+      <path d="M4 90 L36 108 L68 90" fill="none" stroke="#0E1513" stroke-width="2" opacity=".75"/>
+      <text x="36" y="134" text-anchor="middle" font-size="11" fill="#9AAAA4">pay $129</text>
+    </g>
+
+  <rect x="640" y="76" width="200" height="64" rx="10" fill="#1A2522" stroke="#2F3D39"/>
+  <text x="740" y="104" text-anchor="middle" font-size="15" font-weight="700" fill="#E3ECE8">Payment service</text>
+  <text x="740" y="124" text-anchor="middle" font-size="12" fill="#9AAAA4">replies 200 OK every time</text>
+  <text x="646" y="164" font-size="12" font-weight="600" fill="#9AAAA4">Charges in the database</text>
+
+  <g style="animation: r11 16s linear infinite; opacity: 0">
+      <line x1="640" y1="194" x2="840" y2="194" stroke="#2F3D39"/>
+      <text x="646" y="186" font-size="14" fill="#E3ECE8">$129 charged</text>
+    </g><g style="animation: r12 16s linear infinite; opacity: 0">
+      <line x1="640" y1="218" x2="840" y2="218" stroke="#2F3D39"/>
+      <text x="646" y="210" font-size="14" fill="#F0607A">$129 charged again</text>
+    </g>
+  <g style="animation: r21 16s linear infinite; opacity: 0">
+      <line x1="640" y1="194" x2="840" y2="194" stroke="#2F3D39"/>
+      <text x="646" y="186" font-size="14" fill="#E3ECE8">$129 charged</text>
+    </g><g style="animation: r22 16s linear infinite; opacity: 0">
+      <line x1="640" y1="218" x2="840" y2="218" stroke="#2F3D39"/>
+      <text x="646" y="210" font-size="14" fill="#6F7E79">duplicate ignored</text>
+    </g>
+
+  <text x="40" y="196" font-size="13" fill="#9AAAA4">Every service says OK.</text>
+  <text x="40" y="216" font-size="13" fill="#9AAAA4">StateVerdict checks the money instead.</text>
+
+  <g style="animation: st1 16s ease-out infinite; opacity: 0">
+      <rect x="-112" y="-30" width="224" height="60" rx="8" fill="none" stroke="#F0607A" stroke-width="3"/>
+      <text x="0" y="-2" text-anchor="middle" font-size="24" font-weight="800" letter-spacing="2" fill="#F0607A">FAIL</text>
+      <text x="0" y="18" text-anchor="middle" font-size="12" fill="#F0607A">one order, charged twice</text>
+    </g>
+  <g style="animation: st2 16s ease-out infinite; opacity: 0">
+      <rect x="-112" y="-30" width="224" height="60" rx="8" fill="none" stroke="#4CC08A" stroke-width="3"/>
+      <text x="0" y="-2" text-anchor="middle" font-size="24" font-weight="800" letter-spacing="2" fill="#4CC08A">PASS</text>
+      <text x="0" y="18" text-anchor="middle" font-size="12" fill="#4CC08A">one order, one charge</text>
+    </g>
+</svg>

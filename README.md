@@ -1,64 +1,77 @@
 # StateVerdict
 
-**Fault exploration and evidence-based correctness testing for event-driven microservices.**
+**Finds the bugs where every service says "OK" but the customer's money or order ends up wrong.**
 
-Every service in a checkout flow can return `200 OK` while the business outcome is still wrong: an
-order confirmed after the payment was declined, or one purchase charged twice because a message was
-delivered twice. StateVerdict makes specific delivery faults happen on demand, judges the outcome from
-each service's **committed state** (not logs, traces or status codes), and reports one of four
-verdicts: **PASS**, **FAIL**, **INCONCLUSIVE** or **ERROR**.
+[![ci](https://github.com/sriharichepuri21/stateverdict/actions/workflows/ci.yml/badge.svg)](https://github.com/sriharichepuri21/stateverdict/actions/workflows/ci.yml)
+[![evaluation](https://github.com/sriharichepuri21/stateverdict/actions/workflows/evaluation.yml/badge.svg)](https://github.com/sriharichepuri21/stateverdict/actions/workflows/evaluation.yml)
+[![licence](https://img.shields.io/badge/licence-Apache--2.0-blue)](LICENSE)
 
-## What it found
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.svg">
+  <img alt="Animation: a payment message is delivered twice. Without the fix the customer is charged twice and StateVerdict reports FAIL. With the fix the duplicate is ignored and it reports PASS." src="docs/assets/hero-light.svg" width="100%">
+</picture>
 
-The example payment service has two handlers: a deliberately naive one and an idempotent fix.
-StateVerdict delivered the same `payment.requested` event twice and checked rule **SV-002: at most one
-committed payment capture per order**. 10 clean-state trials per row, measured in CI:
+### ▶ [Try it in your browser](https://sriharichepuri21.github.io/stateverdict/): break a checkout and watch the verdict
 
-| Payment handler | Fault | PASS | FAIL | INCONCLUSIVE | ERROR |
-|---|---|---|---|---|---|
-| naive | none (negative control) | 10 | 0 | 0 | 0 |
-| naive | event delivered twice | 0 | **10** | 0 | 0 |
-| idempotent | none (negative control) | 10 | 0 | 0 | 0 |
-| idempotent | event delivered twice | **10** | 0 | 0 | 0 |
+## The problem, in one minute
 
-With the fix, the event is still delivered twice, but only one capture is committed. StateVerdict
-tells a harmless duplicate *delivery* apart from a harmful duplicate *side effect*. Method, CI runs and
-limits: [docs/results/spike-reproduction.md](docs/results/spike-reproduction.md).
+An online shop is usually several small programs ("services") that send each other messages: the
+order service tells the payment service *"please charge $129"*. Networks are imperfect, so sometimes a
+message **arrives twice**, **arrives late**, or arrives **while the customer is cancelling**.
 
-Real output of the failing run (from the CI demo job):
+When that happens, every service can still answer `200 OK`, and normal tests pass, while the
+customer has been **charged twice** or a **cancelled order ships anyway**.
 
-```text
-StateVerdict v0.1.0
+StateVerdict tests for exactly this. It does three things:
 
-Scenario:  checkout-duplicate-payment-request (v1)
-Run:       sv-cf886a25
-Faults:    {type=DUPLICATE, topic=payment.requested, copies=2}
-Execution: COMPLETED
+| | Step | In plain words |
+|---|---|---|
+| 1 | **Cause the accident** | Repeat, delay or hold one exact message, on purpose, at the exact moment that matters |
+| 2 | **Check the databases** | Ignore "OK" replies and logs. Read what was actually saved: orders, charges, refunds |
+| 3 | **Give a verdict** | **PASS** or **FAIL** against business rules such as *"a customer is charged at most once"*, with the saved rows as evidence. If evidence is missing it says **INCONCLUSIVE**, never PASS |
 
-Rule SV-002 v1
-  At most one committed payment capture per order
+## Does it work? Measured, not claimed
 
-  Expected: at most 1 capture
-  Observed: 2 captures
-  Result:   VIOLATED
-  Why:      Order 949b5491-4492-43b5-a811-3ce47002d0c2 was captured 2 times; captured event ids: aced970e-46c0-4c22-82a1-aa99607eaa77, aced970e-46c0-4c22-82a1-aa99607eaa77.
-  Evidence: payment.captures
+**On planted bugs.** Six realistic bugs and three harmless changes were planted in an example
+shop. The shop's own tests and StateVerdict were run against each one, with predictions written
+down first ([full results](docs/evaluation/results.md)):
 
-Overall verdict: FAIL
-Report:          artifacts/demo-duplicate-naive.json
-Exit code:       1
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/results-dark.svg">
+  <img alt="Normal tests caught 6 of 6 bugs with 1 false alarm out of 3 harmless changes. StateVerdict caught 6 of 6 with no false alarms." src="docs/assets/results-light.svg" width="100%">
+</picture>
 
-## Try it: one command
+Both caught every bug. Three of the normal tests also failed on a *harmless* change, because they
+check how the code works rather than what the customer gets. StateVerdict knew nothing about the code
+and raised no false alarm.
 
-You need Docker (with Compose) and curl. Nothing else, not even Java. A GitHub Codespace works
-out of the box (Code → Codespaces → Create).
+**On someone else's app.** StateVerdict was pointed at
+[a popular open-source Kafka shop](https://github.com/piomin/sample-spring-kafka-microservices) written
+by another developer, without changing its business logic ([results](targets/piomin-saga/RESULTS.md)):
+
+| What it found | How small the cause is |
+|---|---|
+| A rejected order makes **money appear out of nothing** (a `"PAYMENT"` vs `"payment"` mismatch) | One order the customer can't afford. No accident needed |
+| A repeated message makes the customer **pay twice** | One repeated order request, whichever service receives it |
+| A reply that is 12 seconds late leaves the order **stuck forever** | One delayed reply; 6 seconds is not enough to break it |
+
+- **8 of 8** predictions written before the first run came true, each in 10 of 10 runs.
+- **45 of 60** randomly generated scenarios broke the app.
+- StateVerdict then **shrank** each failure to the single cause above, confirmed in 10 of 10 runs.
+  One cause was not predicted at all: a repeat in the *stock* service makes the *customer* pay twice.
+
+## Try it
+
+**In the browser, no setup:** the [interactive explainer](https://sriharichepuri21.github.io/stateverdict/)
+replays the measured results.
+
+**On your machine, one command.** You only need Docker. A GitHub Codespace works out of the box.
 
 ```bash
 scripts/demo.sh
 ```
 
-It builds everything, starts PostgreSQL, Kafka and both services, and runs four checks:
+It starts a database, Kafka and two services, then checks four things:
 
 ```text
 1. baseline (naive handler)            expected PASS  got PASS         ok
@@ -69,170 +82,146 @@ It builds everything, starts PostgreSQL, Kafka and both services, and runs four 
 DEMO OK: the fault is detected against the naive handler and accepted after the fix.
 ```
 
-It exits non-zero if any step gives an unexpected verdict, and CI runs it on every pull request. Use
-`KEEP=1 scripts/demo.sh` to leave the stack running afterwards.
+<details>
+<summary><b>What a verdict looks like</b> (real output from CI, ids shortened)</summary>
 
-## Schedules: controlling the order of events
+```text
+Scenario:  checkout-duplicate-payment-request (v1)
+Faults:    {type=DUPLICATE, topic=payment.requested, copies=2}
+Execution: COMPLETED
 
-Some bugs need events and user actions to happen in a particular order. A **schedule** is a JSON list
-of steps that StateVerdict runs across both services: arm a fault, place an order, wait until an
-event is held, cancel, release. Example: hold `payment.completed`, let the customer cancel while it
-is held, then release it. Against the naive order handler the cancelled order ends **CONFIRMED**
-(rule SV-003 fails, 10/10 trials); against the guarded handler it stays cancelled (10/10 PASS).
+Rule SV-002 v1
+  At most one committed payment capture per order
 
-```bash
-# with the stack running (KEEP=1 scripts/demo.sh)
-docker compose -f infrastructure/compose/docker-compose.yml --profile cli run --rm stateverdict \
-  run-schedule scenarios/cancel-while-payment-completion-held.json --trials 10
+  Expected: at most 1 capture
+  Observed: 2 captures
+  Result:   VIOLATED
+  Why:      Order 949b5491-… was captured 2 times; captured event ids: aced970e-…, aced970e-….
+  Evidence: payment.captures
+
+Overall verdict: FAIL
+Exit code:       1
 ```
 
-See [scenarios/](scenarios/README.md) for the step format and examples.
-
-## Exploration: finding schedules nobody wrote
-
-`stateverdict explore` generates random but valid schedules from a seed (faults on either event,
-customer cancels at different moments, approved or declined amounts), runs each once, and saves
-every schedule that violates a rule as a file you can rerun. Nobody tells it where the bugs are.
-
-```bash
-docker compose -f infrastructure/compose/docker-compose.yml --profile cli run --rm stateverdict \
-  explore --iterations 60 --seed 42
-```
-
-The same seed always generates the same schedules. A finding from one run is a lead; confirm it
-with `run-schedule <saved file> --trials 10`.
-
-Seed 42, 60 schedules: against the naive handlers it found **24 violations of SV-002 and SV-003**, only
-3 of them the race written by hand; 4 needed no fault at all, just a customer cancelling quickly.
-Against the fixed handlers all 60 passed. Details: [docs/results/exploration.md](docs/results/exploration.md).
-
-## Shrinking: the smallest schedule that still fails
-
-`stateverdict shrink <schedule>` cuts a failing schedule down: it tries removing each fault, the
-customer's cancel, and simplifying parameters, keeps a change only if the smaller schedule still
-fails **every one** of K runs (default 3), and repeats until nothing more can go. Removing a hold also
-removes its wait and release, so every candidate stays valid. The original and the result are each
-measured over N runs (default 10), so you see whether the smaller schedule is as reliable as the
-original. A finding that does not fail every time is measured and reported, not shrunk.
-
-```bash
-docker compose -f infrastructure/compose/docker-compose.yml --profile cli run --rm stateverdict \
-  shrink artifacts/found/<finding>.json
-```
-
-Measured in CI: the most complex SV-002 finding shrank to "deliver the payment request twice, place
-the order", and the most complex SV-003 finding shrank to just **"place the order, cancel it"**, both
-failing 10/10. The cancel/confirm race never needed a fault. Details:
-[docs/results/shrinking.md](docs/results/shrinking.md).
-
-## Why not just write JUnit tests?
-
-Measured on a corpus of 6 deliberate defects and 3 harmless changes
-([docs/evaluation/results.md](docs/evaluation/results.md)), with predictions written down first:
-
-| | Defects caught | False alarms |
-|---|---|---|
-| The services' 38 JUnit + Testcontainers tests | **6 / 6** | 1 / 3 |
-| StateVerdict (4 business rules, generated schedules) | **6 / 6** | **0 / 3** |
-
-The JUnit suite was written by the same person who wrote the defects, so it was aimed at them. It also
-raised a false alarm on a harmless change because three tests assert implementation details.
-StateVerdict knew nothing about the code. It first missed two defects, and each miss pointed at a
-real gap in the tool: no rule about refunds (closed by SV-004), and no way to deliver two copies of a
-message at the same moment (closed by `DUPLICATE_CONCURRENT`). Both were found by generated schedules,
-not by scenarios written for those defects. They are complementary: targeted tests for
-known behaviour, generated schedules plus business rules for the combinations nobody wrote a test for.
-
-## Tested against someone else's code
-
-StateVerdict was run against [piomin/sample-spring-kafka-microservices](https://github.com/piomin/sample-spring-kafka-microservices),
-a widely used Spring Boot and Kafka saga example, at a pinned commit. It took a 143-line adapter and no
-change to its business logic ([targets/piomin-saga](targets/piomin-saga/README.md)). Predictions were
-committed before the first run, and **8 of 8 held, each 10/10, with no false alarm**
-([results](targets/piomin-saga/RESULTS.md)):
-
-- **A rejected order corrupts the balance of the service that rejected it.** A case mismatch
-  (`"PAYMENT"` vs `"payment"`) makes both sides undo a reservation. One unaffordable order leaves the
-  customer with 5000 extra money and a reservation of -5000. No fault is needed.
-- A redelivered message charges the customer twice, and a reply 12 s late leaves the order undecided
-  forever, with its reservations held.
-- **Generated exploration**, with the same engine and a schedule space for this target, found all of
-  these blind: 45 of 60 schedules failed. The shrinker reduced each kind of finding to a single cause,
-  confirmed 10/10. One of them was not predicted: a duplicate in the *stock* service makes the
-  *customer* pay twice, through the order service's join.
+Every reading of the database is kept in a JSON report with its source, time and a SHA-256 of the
+exact response, so `stateverdict replay-evidence report.json` re-derives the same verdict later
+without contacting any service.
+</details>
 
 ## How it works
 
-```text
-                 X-Correlation-Id: <run id>
-StateVerdict ──► order-service ──► Kafka: payment.requested ──► payment-service
-     │                                                              │
-     │  arm fault for the run                    listener ──► Dispatcher ──► capture handler
-     ├────────────────────────────────────────────────────────────►│ (hold / delay / duplicate,
-     │                                                              │  journal every delivery)
-     │  read journal + committed captures (evidence)               │
-     ◄──────────────────────────────────────────────────────────────┘
-     │
-     └─► evaluate rules on frozen evidence ──► verdict + JSON report + exit code
+```mermaid
+flowchart LR
+    SV([StateVerdict]) -- "1. arm: repeat the next<br/>payment message" --> H
+    SV -- "2. place an order" --> O[Order service]
+    O -- message --> K[(Kafka)]
+    K --> H{{hook inside<br/>payment service}}
+    H -- "delivers it twice" --> P[Payment service]
+    P --> DB[(Payment database)]
+    SV -. "3. read what was saved" .-> DB
+    SV -- "4. check rules" --> V{PASS / FAIL}
 ```
 
-1. **Arm a fault** for one run in the payment service's test-mode dispatcher.
-2. **Trigger** the workflow: place an order tagged with the run id.
-3. **Wait** until the dispatcher journal shows every expected delivery (deadline-bounded).
-4. **Collect evidence** from committed-state APIs. Each record keeps its source, observation time and a
-   SHA-256 of the exact response.
-5. **Evaluate** rules as pure functions of that evidence and derive the verdict.
+The hook is a few lines in each service, switched on only in test mode: messages pass through it,
+and StateVerdict can tell it to hold, delay or repeat one exact message for one test run. Because it
+acts on a specific message (not on the network), the same accident happens every time, and every
+result is repeated 10 times to prove it is not luck.
 
-## Design decisions
+<details>
+<summary><b>For engineers: scenarios, random exploration and shrinking</b></summary>
 
-| Decision | Why | Record |
-|---|---|---|
-| Faults are injected in a dispatcher *after* Kafka consumption | Exact, per-event control; a network proxy cannot duplicate one specific event | [ADR-002](docs/decisions/ADR-002-controlled-dispatch-after-consumption.md) |
-| Execution status is separate from rule truth | A real violation is never erased by a later infrastructure error; missing evidence is never a PASS | [ADR-004](docs/decisions/ADR-004-execution-and-rule-truth-are-separate.md) |
-| The fix uses an inbox table in the same transaction | Safe under concurrent copies, unlike a "check, then insert" | [ADR-006](docs/decisions/ADR-006-idempotency-with-an-inbox-table.md) |
-| The tool is a modular monolith; the system under test is distributed | Distributed complexity belongs where it is being tested | [ADR-001](docs/decisions/ADR-001-modular-monolith-core.md) |
+### Scenarios: controlling the order of events
 
-Verdict precedence: any rule **VIOLATED** → FAIL (exit 1); otherwise infrastructure failure → ERROR
-(exit 3); otherwise timeout or missing evidence → INCONCLUSIVE (exit 2); otherwise PASS (exit 0).
-
-## Repository
-
-| Path | What it is |
-|---|---|
-| `apps/stateverdict-core/` | Runner, evidence, rules, verdicts, replay, CLI (plain Java) |
-| `libs/stateverdict-dispatch/` | Test-mode dispatcher: hold, delay, duplicate, journal |
-| `examples/commerce/` | System under test: order and payment services (Spring Boot 4.1, Java 21) |
-| `infrastructure/compose/` | PostgreSQL 17, Kafka 4.1 (KRaft), services, CLI |
-| `scripts/` | One-command demo, measurement and smoke scripts |
-| `docs/` | ADRs, event contract, measured results, retrospective, full specification |
-
-## Using the CLI directly
-
-With the stack running (`KEEP=1 scripts/demo.sh`, or `docker compose -f infrastructure/compose/docker-compose.yml up --build -d`):
+Some bugs need events to happen in a particular order. A **schedule** is a JSON list of steps:
+arm a fault, place an order, wait until a message is held, cancel, release. For example, hold the
+"payment completed" message, let the customer cancel, then release it. Against the buggy order
+service the cancelled order ends **CONFIRMED** (FAIL in 10 of 10 runs); against the fixed one it stays
+cancelled and is refunded (PASS in 10 of 10). See [scenarios/](scenarios/README.md).
 
 ```bash
 SV="docker compose -f infrastructure/compose/docker-compose.yml --profile cli run --rm stateverdict"
-
-$SV run checkout-duplicate-payment-request --copies 1        # baseline
-$SV run checkout-duplicate-payment-request --copies 2 --report artifacts/dup.json
-$SV replay-evidence artifacts/dup.json                       # same verdict, no services contacted
-$SV run checkout-duplicate-payment-request --copies 2 --trials 10
+$SV run-schedule scenarios/cancel-while-payment-completion-held.json --trials 10
 ```
 
-Developing locally with Java 21 and Maven: `mvn -B verify` runs all 163 tests, using Testcontainers
-for PostgreSQL and Kafka.
+### Exploration: scenarios nobody wrote
 
-## Status and limits
+`explore` generates random but valid schedules from a seed: faults on any message, a customer who
+cancels at different moments, and payments that are approved or declined. It saves every schedule
+that breaks a rule as a file you can rerun. The same seed always gives the same schedules. In the
+latest CI run, 35 of 60 broke the buggy version and all 60 passed against the fixed version
+([details](docs/results/exploration.md)).
 
-The seven-step technical spike from the [specification](docs/specification/StateVerdict_Engineering_Specification_v1.0.pdf)
-is complete; see the [retrospective](docs/results/spike-retrospective.md). Since then: a second event
-flow with customer cancellation, schedules, rule SV-003, the explorer (gate 2 met) and the shrinker
-(gate 3 met). StateVerdict covers two defect classes (duplicate side effects, and an outcome
-overwriting a cancellation), with sequential and concurrent duplicate delivery on a single-partition topology. Gate 4 has a
-measured head-to-head with the conventional suite; SV-004 (refunds) and concurrent duplicate delivery
-closed the two gaps it found, so StateVerdict now catches 6/6 defects with no false alarms.
+```bash
+$SV explore --iterations 60 --seed 42
+```
+
+### Shrinking: the smallest scenario that still fails
+
+`shrink` removes one fault or step at a time, keeps a removal only if the smaller scenario still
+fails **every one** of 3 runs, and stops when nothing more can go. The result is confirmed over 10
+runs. A failure that does not repeat reliably is measured and reported, not shrunk
+([details](docs/results/shrinking.md)).
+
+```bash
+$SV shrink artifacts/found/<finding>.json
+```
+
+The explorer and shrinker know nothing about the system under test: each target supplies a
+`ScheduleSpace` (how to generate, validate, simplify and describe its scenarios). The same engine runs
+on the example shop and on the external app.
+</details>
+
+<details>
+<summary><b>For engineers: design decisions</b></summary>
+
+| Decision | Why | Record |
+|---|---|---|
+| Faults are injected by a hook *after* Kafka delivers the message | Exact control of one message; a network proxy cannot repeat one specific event | [ADR-002](docs/decisions/ADR-002-controlled-dispatch-after-consumption.md) |
+| "Did the test run properly?" is kept separate from "is the rule true?" | A real violation is never hidden by a later infrastructure error; missing evidence is never a PASS | [ADR-004](docs/decisions/ADR-004-execution-and-rule-truth-are-separate.md) |
+| The fix records each processed message in the same database transaction | Safe even when two copies arrive at the same moment, unlike "check, then insert" | [ADR-006](docs/decisions/ADR-006-idempotency-with-an-inbox-table.md) |
+| The tool is one program; the system it tests is distributed | Keep the complexity where it is being tested | [ADR-001](docs/decisions/ADR-001-modular-monolith-core.md) |
+
+Verdict precedence: any rule **VIOLATED** → FAIL (exit 1); otherwise an infrastructure failure → ERROR
+(exit 3); otherwise a timeout or missing evidence → INCONCLUSIVE (exit 2); otherwise PASS (exit 0).
+</details>
+
+<details>
+<summary><b>For engineers: repository layout and CLI</b></summary>
+
+| Path | What it is |
+|---|---|
+| `apps/stateverdict-core/` | Runner, evidence, rules, verdicts, explorer, shrinker, replay, CLI (plain Java 21) |
+| `libs/stateverdict-dispatch/` | The test-mode hook: hold, delay, repeat, repeat concurrently, journal |
+| `examples/commerce/` | Example shop: order and payment services (Spring Boot 4.1, Kafka 4.1, PostgreSQL 17) |
+| `targets/piomin-saga/` | The external app: pinned commit, small adapter patch (GPL-3.0), scenarios, results |
+| `docs/` | Decision records, measured results, the interactive explainer (`docs/site`) |
+
+```bash
+SV="docker compose -f infrastructure/compose/docker-compose.yml --profile cli run --rm stateverdict"
+$SV run checkout-duplicate-payment-request --copies 2 --trials 10
+$SV replay-evidence artifacts/dup.json        # same verdict, no services contacted
+```
+
+Developing with Java 21 and Maven: `mvn -B verify` runs all 184 tests, using Testcontainers for
+PostgreSQL and Kafka. CI also runs the demo, every measurement above, the planted-bug evaluation and
+the external app on every pull request.
+</details>
+
+<details>
+<summary><b>Limits, stated plainly</b></summary>
+
+- Two applications so far: the example shop and one external app, each at a pinned version.
+- Faults are applied where a service receives a message. Broker failures and partition rebalances
+  are out of scope.
+- Every result is repeated 10 times on one kind of CI machine. That is enough to catch a flaky
+  result, not to make claims about very rare failures.
+- The planted bugs and the example shop's tests were written by the same person. The external app is
+  the answer to that, and it is reported with what StateVerdict did and did not contribute.
+</details>
 
 ## Guiding principle
 
 Never report a verified business outcome without sufficient, trustworthy evidence.
 Missing evidence produces **INCONCLUSIVE**, never **PASS**.
+
+StateVerdict is licensed under [Apache-2.0](LICENSE).

@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StateVerdict: try it in your browser</title>
+<meta name="description" content="Break a checkout on purpose and watch StateVerdict check whether the money is right.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F5F7F6; --card: #FFFFFF; --ink: #1E2A27; --soft: #56665F; --line: #D3DCD8;
+    --msg: #2C6E9B; --sv: #5A4FCF; --pass: #1F7D52; --fail: #B42343; --warn: #9A6A0E;
+    --pass-bg: #E3F2EA; --fail-bg: #F8E4E8;
+    --display: "Bricolage Grotesque", system-ui, sans-serif;
+    --body: "Atkinson Hyperlegible", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #121A18; --card: #1A2522; --ink: #E3ECE8; --soft: #9DAEA7; --line: #2F3D39;
+      --msg: #6AA8DA; --sv: #A49CFF; --pass: #52C590; --fail: #F06A82; --warn: #E0B04F;
+      --pass-bg: #173327; --fail-bg: #3A1820;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 18px/1.6 var(--body); }
+  a { color: var(--msg); }
+  :focus-visible { outline: 3px solid var(--sv); outline-offset: 2px; border-radius: 4px; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+  .narrow { max-width: 680px; }
+  h1, h2, h3 { font-family: var(--display); line-height: 1.12; margin: 0; }
+  h1 { font-size: clamp(2.2rem, 5.5vw, 3.9rem); font-weight: 800; letter-spacing: -0.02em; max-width: 15ch; }
+  h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 800; letter-spacing: -0.01em; }
+  h3 { font-size: 1.15rem; font-weight: 600; }
+  p { margin: 0.6em 0; }
+  .lead { font-size: 1.2rem; color: var(--soft); max-width: 60ch; }
+  header.site { padding: 20px 0; }
+  header.site .wrap { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+  .brand { font-family: var(--display); font-weight: 800; font-size: 1.25rem; }
+  .hero { padding-top: 48px; padding-bottom: 24px; }
+  .hero p { margin-top: 20px; }
+  section { padding: 56px 0; }
+  section + section { border-top: 1px solid var(--line); }
+
+  /* Simulator */
+  .controls { display: flex; flex-wrap: wrap; gap: 20px 36px; align-items: flex-end; margin: 28px 0 20px; }
+  .controls .faults { flex: 1 1 420px; }
+  fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+  legend { font-weight: 700; margin-bottom: 8px; font-size: 0.95rem; }
+  .choices { display: flex; flex-wrap: wrap; gap: 8px; }
+  .choices label { position: relative; }
+  .choices input { position: absolute; opacity: 0; inset: 0; }
+  .choices span { display: block; padding: 9px 14px; border: 1.5px solid var(--line); border-radius: 999px; background: var(--card);
+                  cursor: pointer; font-size: 0.95rem; line-height: 1.25; }
+  .choices input:checked + span { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+  .choices input:focus-visible + span { outline: 3px solid var(--sv); outline-offset: 2px; }
+  button.run { font: 700 1rem var(--body); padding: 12px 22px; border-radius: 999px; border: 0; background: var(--sv); color: var(--paper); cursor: pointer; }
+  button.run:disabled { opacity: 0.55; cursor: progress; }
+  .stage { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 20px; }
+  .panel { min-width: 0; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .panel h3 { margin-bottom: 10px; }
+  .scroll { overflow-x: auto; }
+  #diagram { width: 100%; min-width: 560px; height: auto; display: block; }
+  #diagram text { font-family: var(--body); }
+  .ledger dt { font-size: 0.9rem; color: var(--soft); margin-top: 10px; }
+  .ledger dd { margin: 2px 0 0; font-weight: 700; min-height: 1.6em; }
+  .ledger .bad { color: var(--fail); }
+  .ledger .muted { color: var(--soft); font-weight: 400; }
+  .rules { list-style: none; padding: 0; margin: 0; }
+  .rules li { display: grid; grid-template-columns: 26px 1fr; gap: 6px; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 0.95rem; }
+  .rules li:last-child { border-bottom: 0; }
+  .mark { font-weight: 700; }
+  .mark.ok { color: var(--pass); } .mark.no { color: var(--fail); } .mark.wait { color: var(--soft); }
+  .verdict { margin-top: 16px; display: flex; align-items: center; gap: 14px; min-height: 76px; }
+  .stamp { font: 800 1.9rem var(--display); letter-spacing: 0.08em; padding: 6px 16px; border: 3px solid currentColor; border-radius: 8px;
+           transform: rotate(-6deg); opacity: 0; }
+  .stamp.show { opacity: 1; animation: stamp 0.35s ease-out; }
+  .stamp.pass { color: var(--pass); } .stamp.fail { color: var(--fail); }
+  @keyframes stamp { from { transform: rotate(-6deg) scale(1.7); opacity: 0; } to { transform: rotate(-6deg) scale(1); opacity: 1; } }
+  .verdict p { margin: 0; font-size: 0.95rem; color: var(--soft); }
+  .measured { margin-top: 14px; font-size: 0.9rem; color: var(--soft); }
+
+  /* Corpus */
+  .toggle { display: inline-flex; border: 1.5px solid var(--line); border-radius: 999px; padding: 3px; margin: 22px 0 18px; background: var(--card); }
+  .toggle button { font: 700 0.95rem var(--body); border: 0; background: transparent; color: var(--ink); padding: 8px 16px; border-radius: 999px; cursor: pointer; }
+  .toggle button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .tile { text-align: left; font: inherit; color: inherit; background: var(--card); border: 1.5px solid var(--line); border-radius: 12px; padding: 14px; cursor: pointer; }
+  .tile .kind { font-size: 0.85rem; color: var(--soft); }
+  .tile .what { font-weight: 700; margin: 4px 0 8px; line-height: 1.3; }
+  .tile .res { font-size: 0.9rem; font-weight: 700; }
+  .tile.good { border-color: var(--pass); } .tile.good .res { color: var(--pass); }
+  .tile.bad { border-color: var(--fail); background: var(--fail-bg); } .tile.bad .res { color: var(--fail); }
+  .tile[aria-expanded="true"] { box-shadow: 0 0 0 2px var(--ink) inset; }
+  .detail { margin-top: 14px; min-height: 3em; }
+  .score { display: flex; gap: 28px; flex-wrap: wrap; margin-top: 8px; }
+  .score b { font: 800 2rem var(--display); display: block; }
+
+  /* External target */
+  .finds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 24px; }
+  .find h3 { margin-bottom: 6px; }
+  .steps { list-style: none; padding: 0; margin: 10px 0; }
+  .steps li { padding: 5px 10px; margin: 4px 0; border-radius: 8px; background: var(--paper); font-size: 0.95rem; transition: opacity 0.3s; }
+  .steps li.gone { opacity: 0.35; text-decoration: line-through; }
+  .steps li.cause { background: var(--fail-bg); font-weight: 700; }
+  .find button { font: 700 0.9rem var(--body); border: 1.5px solid var(--ink); background: transparent; color: var(--ink); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+  .find .why { font-size: 0.95rem; color: var(--soft); }
+  .bigfacts { display: flex; flex-wrap: wrap; gap: 32px; margin-top: 18px; }
+  .bigfacts div { max-width: 16ch; }
+  .bigfacts b { font: 800 2.4rem var(--display); display: block; line-height: 1; }
+
+  .how { counter-reset: s; list-style: none; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 24px; }
+  .how li { counter-increment: s; }
+  .how li::before { content: counter(s); font: 800 2.2rem var(--display); color: var(--sv); display: block; }
+  footer { padding: 40px 0 60px; color: var(--soft); font-size: 0.95rem; border-top: 1px solid var(--line); }
+
+  @media (max-width: 820px) {
+    .stage { grid-template-columns: 1fr; }
+    .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .finds, .how { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } body { font-size: 17px; } .wrap { padding: 0 16px; } }
+  @media (prefers-reduced-motion: reduce) { .stamp.show { animation: none; } }
+</style>
+</head>
+<body>
+<header class="site"><div class="wrap">
+  <span class="brand">StateVerdict</span>
+  <a href="https://github.com/sriharichepuri21/stateverdict">Source on GitHub</a>
+</div></header>
+
+<main>
+<div class="wrap hero">
+  <h1>Every service said OK. The customer was charged twice.</h1>
+  <p class="lead">Online shops are built from small services that pass messages to each other. Sometimes a message
+    arrives twice, or late, or while the customer is changing their mind. Each service still answers
+    "200 OK". StateVerdict makes those accidents happen on purpose, then checks what really matters:
+    is the money right, and is the order right?</p>
+</div>
+
+<section id="try"><div class="wrap">
+  <h2>Try it: break a checkout</h2>
+  <p class="narrow">Pick a version of the shop and something to go wrong. StateVerdict will run the order, cause the
+    problem, read the databases and give its verdict.</p>
+
+  <form class="controls" id="controls">
+    <fieldset>
+      <legend>Which version of the shop?</legend>
+      <div class="choices">
+        <label><input type="radio" name="version" value="buggy" checked><span>With bugs</span></label>
+        <label><input type="radio" name="version" value="fixed"><span>Fixed</span></label>
+      </div>
+    </fieldset>
+    <fieldset class="faults">
+      <legend>What goes wrong?</legend>
+      <div class="choices">
+        <label><input type="radio" name="fault" value="none"><span>Nothing</span></label>
+        <label><input type="radio" name="fault" value="twice" checked><span>Payment message arrives twice</span></label>
+        <label><input type="radio" name="fault" value="atonce"><span>Two copies at the same moment</span></label>
+        <label><input type="radio" name="fault" value="cancel"><span>Customer cancels while the payment reply is delayed</span></label>
+      </div>
+    </fieldset>
+    <button class="run" type="submit" id="run">Run it</button>
+  </form>
+
+  <div class="stage">
+    <div class="panel">
+      <h3>What happens</h3>
+      <div class="scroll"><svg id="diagram" viewBox="0 0 620 300" role="img" aria-labelledby="diagram-title">
+        <title id="diagram-title">Messages between the customer, the order service, the payment service and StateVerdict</title>
+      </svg></div>
+    </div>
+    <div class="panel">
+      <h3>What the databases say</h3>
+      <dl class="ledger">
+        <dt>Order status</dt><dd id="l-status" class="muted">not placed yet</dd>
+        <dt>Charges</dt><dd id="l-charges" class="muted">none</dd>
+        <dt>Refunds</dt><dd id="l-refunds" class="muted">none</dd>
+      </dl>
+      <h3 style="margin-top:18px">Rules checked</h3>
+      <ul class="rules" id="rules"></ul>
+      <div class="verdict" aria-live="polite">
+        <span class="stamp" id="stamp"></span>
+        <p id="verdict-text"></p>
+      </div>
+    </div>
+  </div>
+  <p class="measured" id="measured">This page replays results measured on the real services; it does not run them in your browser.</p>
+</div></section>
+
+<section id="bugs"><div class="wrap">
+  <h2>Does it catch real bugs?</h2>
+  <p class="narrow">To find out, six bugs were planted in the shop, plus three harmless changes that should not raise an
+    alarm. Then the shop's own tests and StateVerdict were run against each one. The predictions were written down
+    before running. Choose a side, then tap a tile to see the change.</p>
+  <div class="toggle" role="group" aria-label="Who is checking">
+    <button type="button" data-side="tests" aria-pressed="false">The shop's own tests (38)</button>
+    <button type="button" data-side="sv" aria-pressed="true">StateVerdict (4 business rules)</button>
+  </div>
+  <div class="grid" id="grid"></div>
+  <p class="detail" id="detail" aria-live="polite">Tap a tile to see what was changed.</p>
+  <div class="score" id="score"></div>
+</div></section>
+
+<section id="outside"><div class="wrap">
+  <h2>Tested on someone else's app</h2>
+  <p class="narrow">To show it is not tuned to its own example, StateVerdict was pointed at
+    <a href="https://github.com/piomin/sample-spring-kafka-microservices">a popular open-source shop</a> built by
+    someone else, with a small adapter and no change to its business logic. It found that a rejected order makes money
+    appear out of nothing, and that a repeated message charges the customer twice.</p>
+  <div class="bigfacts">
+    <div><b>8 of 8</b>predictions written before the first run came true</div>
+    <div><b>45 of 60</b>randomly generated scenarios broke the app</div>
+    <div><b>4 of 4</b>failures shrunk to a single cause, each confirmed 10 of 10</div>
+  </div>
+  <p class="narrow" style="margin-top:24px">A random scenario usually does several things at once. StateVerdict then
+    removes things one at a time and keeps only what is needed to break the app, checking each step several times. Press
+    the button on a card to watch it shrink.</p>
+  <div class="finds" id="finds"></div>
+</div></section>
+
+<section id="how"><div class="wrap">
+  <h2>How it works</h2>
+  <ol class="how">
+    <li><h3>Cause the accident</h3><p>A small hook inside each service lets StateVerdict hold, delay or repeat one
+      exact message, so the problem happens on demand, not by luck.</p></li>
+    <li><h3>Read the databases</h3><p>It ignores status codes and logs. It reads what was actually saved: orders,
+      charges, refunds. Every reading is kept as evidence.</p></li>
+    <li><h3>Give a verdict</h3><p>Business rules decide PASS or FAIL. If the evidence is missing it says
+      INCONCLUSIVE, never PASS. Each result is repeated to check it is not luck.</p></li>
+  </ol>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  StateVerdict is open source (Apache-2.0). Every number on this page comes from runs in the project's CI; see the
+  <a href="https://github.com/sriharichepuri21/stateverdict">repository</a> for the measurements and their limits.
+</div></footer>
+
+<script>
+(() => {
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const wait = ms => new Promise(r => setTimeout(r, reduced ? 0 : ms));
+  const $ = s => document.querySelector(s);
+  const svg = $("#diagram");
+  const NS = "http://www.w3.org/2000/svg";
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+  // ---------- Simulator ----------
+  const LANES = { customer: 70, order: 230, payment: 390, sv: 550 };
+  const LANE_NAMES = { customer: "Customer", order: "Order service", payment: "Payment service", sv: "StateVerdict" };
+  const RULES = [
+    ["paid", "A confirmed order was paid for"],
+    ["once", "The customer is charged at most once"],
+    ["cancel", "A cancelled order is never confirmed"],
+    ["refund", "Money for a cancelled order is refunded"],
+  ];
+
+  // Each scenario: steps drawn in order, final database state, rules broken.
+  // These replay outcomes measured on the real services in CI (10 of 10 runs each).
+  function scenario(version, fault) {
+    const buggy = version === "buggy";
+    const buy = { from: "customer", to: "order", text: "Buy shoes, $129" };
+    const ask = { from: "order", to: "payment", text: "Please charge $129" };
+    const charged = { from: "payment", to: "order", text: "Charged", note: "charge" };
+    const confirm = { at: "order", text: "Order confirmed", status: "CONFIRMED" };
+    if (fault === "none") {
+      return { steps: [buy, ask, { at: "payment", text: "$129 charged", note: "charge" }, { from: "payment", to: "order", text: "Charged" }, confirm],
+               broken: [], measured: "Measured on the real services: PASS in 10 of 10 runs, for both versions." };
+    }
+    if (fault === "twice" || fault === "atonce") {
+      const again = fault === "twice"
+        ? { from: "sv", to: "payment", text: "Deliver the same message again", sv: true }
+        : { from: "sv", to: "payment", text: "Deliver two copies at once", sv: true };
+      const steps = [buy, ask, again];
+      if (buggy) {
+        steps.push({ at: "payment", text: "$129 charged", note: "charge" }, { at: "payment", text: "$129 charged again", note: "charge", bad: true });
+      } else {
+        steps.push({ at: "payment", text: "$129 charged", note: "charge" },
+                   { at: "payment", text: fault === "twice" ? "Already done, ignored" : "Second copy can't claim it", muted: true });
+      }
+      steps.push({ from: "payment", to: "order", text: "Charged" }, confirm);
+      return { steps, broken: buggy ? ["once"] : [],
+               measured: buggy ? "Measured on the real services: FAIL in 10 of 10 runs."
+                               : "Measured on the real services: PASS in 10 of 10 runs. The message still arrived twice; only one charge was saved." };
+    }
+    // cancel while the payment reply is held
+    const steps = [buy, ask, { at: "payment", text: "$129 charged", note: "charge" },
+      { from: "sv", to: "order", text: "Hold the \"Charged\" reply", sv: true },
+      { from: "customer", to: "order", text: "Cancel my order" },
+      { at: "order", text: "Order cancelled", status: "CANCELLED" },
+      { from: "sv", to: "order", text: "Release the held reply", sv: true },
+      { from: "payment", to: "order", text: "Charged (late)" }];
+    if (buggy) {
+      steps.push({ at: "order", text: "Order confirmed anyway", status: "CONFIRMED", bad: true });
+    } else {
+      steps.push({ at: "order", text: "Stays cancelled" }, { from: "order", to: "payment", text: "Refund $129", note: "refund" });
+    }
+    return { steps, broken: buggy ? ["cancel", "refund"] : [], cancelled: true,
+             measured: buggy ? "Measured on the real services: FAIL in 10 of 10 runs."
+                             : "Measured on the real services: PASS in 10 of 10 runs." };
+  }
+
+  function el(name, attrs, text) {
+    const e = document.createElementNS(NS, name);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    if (text !== undefined) e.textContent = text;
+    svg.appendChild(e);
+    return e;
+  }
+
+  function drawLanes(steps = 6) {
+    const h = 96 + steps * 36;
+    svg.setAttribute("viewBox", `0 0 620 ${h}`);
+    svg.querySelectorAll(":scope > :not(title)").forEach(n => n.remove());
+    for (const [key, x] of Object.entries(LANES)) {
+      el("rect", { x: x - 66, y: 6, width: 132, height: 34, rx: 8, fill: key === "sv" ? "none" : css("--paper"),
+                   stroke: key === "sv" ? css("--sv") : css("--line"), "stroke-width": 1.5 });
+      el("text", { x, y: 28, "text-anchor": "middle", "font-size": 14, "font-weight": 700,
+                   fill: key === "sv" ? css("--sv") : css("--ink") }, LANE_NAMES[key]);
+      el("line", { x1: x, y1: 40, x2: x, y2: h - 4, stroke: css("--line"), "stroke-dasharray": "3 5" });
+    }
+  }
+
+  function drawStep(step, y) {
+    const color = step.sv ? css("--sv") : step.bad ? css("--fail") : step.muted ? css("--soft") : css("--ink");
+    if (step.at) {
+      const x = LANES[step.at];
+      const t = el("text", { x, y: y + 4, "text-anchor": "middle", "font-size": 13, "font-weight": step.bad ? 700 : 400, fill: color }, step.text);
+      const w = t.getBBox().width + 16;
+      const r = el("rect", { x: x - w / 2, y: y - 12, width: w, height: 22, rx: 6, fill: css("--card"), stroke: color });
+      svg.insertBefore(r, t);
+      return;
+    }
+    const x1 = LANES[step.from], x2 = LANES[step.to], dir = x2 > x1 ? 1 : -1;
+    const line = el("line", { x1, y1: y, x2: x1, y2: y, stroke: color, "stroke-width": 2,
+                              "stroke-dasharray": step.sv ? "6 4" : "none" });
+    el("text", { x: (x1 + x2) / 2, y: y - 7, "text-anchor": "middle", "font-size": 13, fill: color }, step.text);
+    const head = el("path", { d: `M${x2 - dir * 9} ${y - 5} L${x2} ${y} L${x2 - dir * 9} ${y + 5}`, fill: "none", stroke: color, "stroke-width": 2, opacity: 0 });
+    if (reduced) { line.setAttribute("x2", x2); head.setAttribute("opacity", 1); return; }
+    const start = performance.now(), dur = 380;
+    return new Promise(res => {
+      const tick = now => {
+        const k = Math.min(1, (now - start) / dur);
+        line.setAttribute("x2", x1 + (x2 - x1) * k);
+        if (k < 1) requestAnimationFrame(tick); else { head.setAttribute("opacity", 1); res(); }
+      };
+      requestAnimationFrame(tick);
+    });
+  }
+
+  function setLedger(id, text, cls) {
+    const d = $(id); d.textContent = text; d.className = cls || "";
+  }
+
+  function resetPanel() {
+    setLedger("#l-status", "not placed yet", "muted");
+    setLedger("#l-charges", "none", "muted");
+    setLedger("#l-refunds", "none", "muted");
+    $("#rules").innerHTML = RULES.map(([k, t]) => `<li data-rule="${k}"><span class="mark wait" aria-hidden="true">…</span><span>${t}</span></li>`).join("");
+    const stamp = $("#stamp"); stamp.className = "stamp"; stamp.textContent = "";
+    $("#verdict-text").textContent = "";
+  }
+
+  let running = false;
+  async function run() {
+    if (running) return;
+    running = true; $("#run").disabled = true;
+    const version = document.querySelector("input[name=version]:checked").value;
+    const fault = document.querySelector("input[name=fault]:checked").value;
+    const sc = scenario(version, fault);
+    drawLanes(sc.steps.length); resetPanel();
+    $("#measured").textContent = "Running…";
+    let charges = 0, refunds = 0;
+    const gap = 36;
+    for (let i = 0; i < sc.steps.length; i++) {
+      const step = sc.steps[i];
+      await drawStep(step, 70 + i * gap);
+      if (step.status) setLedger("#l-status", step.status === "CONFIRMED" && sc.cancelled ? "CONFIRMED (the customer had cancelled)" : step.status,
+                                 step.bad ? "bad" : "");
+      if (step.note === "charge" && !step.muted) {
+        charges++; setLedger("#l-charges", charges === 1 ? "$129" : `$129, $129 (${charges} charges)`, charges > 1 ? "bad" : "");
+      }
+      if (step.note === "refund") { refunds++; setLedger("#l-refunds", "$129", ""); }
+      await wait(420);
+    }
+    if (sc.cancelled && refunds === 0) setLedger("#l-refunds", "none (the customer paid for a cancelled order)", "bad");
+    for (const [k] of RULES) {
+      await wait(260);
+      const li = document.querySelector(`#rules li[data-rule="${k}"] .mark`);
+      const bad = sc.broken.includes(k);
+      li.textContent = bad ? "✗" : "✓"; li.className = "mark " + (bad ? "no" : "ok");
+    }
+    await wait(300);
+    const pass = sc.broken.length === 0;
+    const stamp = $("#stamp");
+    stamp.textContent = pass ? "PASS" : "FAIL";
+    stamp.className = "stamp show " + (pass ? "pass" : "fail");
+    $("#verdict-text").textContent = pass ? "Every rule holds on what was actually saved."
+      : `${sc.broken.length === 1 ? "One rule is" : "Two rules are"} broken, with the database rows as evidence.`;
+    $("#measured").textContent = sc.measured;
+    running = false; $("#run").disabled = false;
+  }
+  $("#controls").addEventListener("submit", e => { e.preventDefault(); run(); });
+  document.querySelectorAll("#controls input").forEach(i => i.addEventListener("change", () => run()));
+
+  // ---------- Planted bugs ----------
+  const CORPUS = [
+    { id: "M01", bug: true, what: "Repeated payment messages are no longer ignored", effect: "A repeated message charges the customer twice.", tests: "caught", sv: "caught (charged at most once)" },
+    { id: "M02", bug: true, what: "A late payment can confirm a cancelled order", effect: "The customer cancels, but the order is confirmed anyway.", tests: "caught", sv: "caught (cancelled never confirmed; refund)" },
+    { id: "M03", bug: true, what: "Duplicate check without a lock", effect: "Two copies arriving at the same moment both charge.", tests: "caught", sv: "caught (charged at most once)" },
+    { id: "M04", bug: true, what: "A paid order can be cancelled", effect: "The order is cancelled after payment and nothing refunds it.", tests: "caught", sv: "caught (refund rule)" },
+    { id: "M05", bug: true, what: "A declined payment confirms the order", effect: "The order ships without being paid for.", tests: "caught", sv: "caught (confirmed order was paid)" },
+    { id: "M06", bug: true, what: "The charge is never saved", effect: "The order is confirmed but there is no record of the money.", tests: "caught", sv: "caught (confirmed order was paid)" },
+    { id: "C01", bug: false, what: "Code tidied up, same behaviour", effect: "Harmless: an extra read before an update.", tests: "quiet", sv: "quiet" },
+    { id: "C02", bug: false, what: "Payment is 300 ms slower", effect: "Harmless: slower, still correct.", tests: "quiet", sv: "quiet" },
+    { id: "C03", bug: false, what: "The \"charged\" message is sent twice", effect: "Harmless: the order service ignores the repeat. Three tests still failed, because they check how the code works rather than what the customer gets.", tests: "false alarm", sv: "quiet" },
+  ];
+  let side = "sv", open = null;
+  function renderGrid() {
+    $("#grid").innerHTML = CORPUS.map(c => {
+      const r = side === "sv" ? c.sv : c.tests;
+      const good = c.bug ? r.startsWith("caught") : r === "quiet";
+      const label = c.bug ? (good ? "Caught" : "Missed") : (good ? "No false alarm" : "False alarm");
+      return `<button type="button" class="tile ${good ? "good" : "bad"}" data-id="${c.id}" aria-expanded="${open === c.id}">
+        <div class="kind">${c.bug ? "Planted bug" : "Harmless change"} ${c.id}</div>
+        <div class="what">${c.what}</div>
+        <div class="res">${label}${side === "sv" && c.bug ? ": " + r.replace(/^caught \(|\)$/g, "") : ""}</div></button>`;
+    }).join("");
+    const bugs = CORPUS.filter(c => c.bug), ctrl = CORPUS.filter(c => !c.bug);
+    const caught = bugs.filter(c => (side === "sv" ? c.sv : c.tests).startsWith("caught")).length;
+    const alarms = ctrl.filter(c => (side === "sv" ? c.sv : c.tests) !== "quiet").length;
+    $("#score").innerHTML = `<div><b>${caught} of 6</b>bugs caught</div><div><b>${alarms} of 3</b>false alarms</div>`;
+    document.querySelectorAll(".tile").forEach(t => t.addEventListener("click", () => {
+      open = open === t.dataset.id ? null : t.dataset.id;
+      const c = CORPUS.find(x => x.id === open);
+      $("#detail").textContent = c ? `${c.id}: ${c.effect}` : "Tap a tile to see what was changed.";
+      renderGrid();
+    }));
+  }
+  document.querySelectorAll(".toggle button").forEach(b => b.addEventListener("click", () => {
+    side = b.dataset.side;
+    document.querySelectorAll(".toggle button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    renderGrid();
+  }));
+  renderGrid();
+
+  // ---------- External target: shrinking ----------
+  const FINDS = [
+    { title: "An order is never decided", cause: 0, why: "The payment reply arrives after the 10-second window in which the app matches replies. Halving the delay to 6 s made it pass, so the delay stayed.",
+      steps: ["Payment reply delayed 12 s", "Payment's final message repeated", "Stock's final message repeated 3 times", "Customer can't afford the order", "Product is short of stock"] },
+    { title: "Money appears out of nothing", cause: 3, why: "No accident is needed at all: when the payment is rejected, both services undo a reservation, including the one that never reserved anything.",
+      steps: ["Three payment copies at once", "Two stock copies at once", "Payment's final message delayed 13 s", "Customer can't afford the order"] },
+    { title: "Stock appears out of nothing", cause: 2, why: "The same bug on the stock side: one order for more items than are in stock is enough.",
+      steps: ["Payment reply delayed 0.1 s", "Payment's final message repeated", "Product is short of stock"] },
+    { title: "The customer pays twice", cause: 1, why: "Not predicted. A repeat in the stock service makes the customer pay twice: two \"yes\" replies from stock make the shop confirm the order twice, and payment charges for each.",
+      steps: ["Payment reply delayed 2 s", "Stock request repeated", "Three copies of payment's final message at once", "Stock's final message delayed 2 s"] },
+  ];
+  $("#finds").innerHTML = FINDS.map((f, i) => `<article class="panel find">
+      <h3>${f.title}</h3>
+      <ul class="steps" id="steps-${i}">${f.steps.map(s => `<li>${s}</li>`).join("")}</ul>
+      <button type="button" data-i="${i}">Shrink it</button>
+      <p class="why" id="why-${i}" aria-live="polite"></p></article>`).join("");
+  document.querySelectorAll(".find button").forEach(b => b.addEventListener("click", async () => {
+    const i = +b.dataset.i, f = FINDS[i], items = [...document.querySelectorAll(`#steps-${i} li`)];
+    if (b.dataset.done) {
+      items.forEach(li => li.className = ""); $("#why-" + i).textContent = ""; b.textContent = "Shrink it"; delete b.dataset.done; return;
+    }
+    b.disabled = true;
+    for (let k = 0; k < items.length; k++) {
+      if (k === f.cause) continue;
+      await wait(450); items[k].className = "gone";
+    }
+    await wait(300); items[f.cause].className = "cause";
+    $("#why-" + i).textContent = `Shrunk from ${f.steps.length} things to 1, then confirmed in 10 of 10 runs. ${f.why}`;
+    b.textContent = "Show the original"; b.dataset.done = "1"; b.disabled = false;
+  }));
+
+  drawLanes(); resetPanel();
+})();
+</script>
+</body>
+</html>
