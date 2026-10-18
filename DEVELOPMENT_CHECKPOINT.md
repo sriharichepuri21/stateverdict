@@ -4,8 +4,8 @@ Update this file at the end of every working session (spec section 12, "Session 
 
 ## Current state
 
-- **Branch:** `docs/readme-polish`
-- **Phase:** Presentation: README for non-specialists, animated SVGs, interactive explainer on GitHub Pages
+- **Branch:** `docs/claims-and-ci-split`
+- **Phase:** Review fixes: claims match evidence; randomized campaigns moved off pull requests
 - **Last green command:** CI 39072498345 on PR #18: 184 tests; explore-saga seed 42 FAIL 45/60; four shrinks to one cause each, 10/10
 - **Last failing command:** none on PR #16
 
@@ -52,7 +52,7 @@ None.
 
 ## Next action
 
-Merge the README PR; the owner enables GitHub Pages (Settings → Pages → Source: GitHub Actions) so the explainer is published. Owner to review and post targets/piomin-saga/ISSUE_DRAFT.md when ready.
+Merge, then run the `exploration` workflow once on demand (Actions → exploration → Run workflow) to confirm it on main.
 
 ## Open questions (spec appendix B)
 

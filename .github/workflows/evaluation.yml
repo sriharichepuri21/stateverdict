@@ -3,15 +3,14 @@ name: evaluation
 # Head-to-head on the defect corpus (docs/evaluation/corpus.md): for every configuration, run the
 # conventional JUnit/Testcontainers suite and StateVerdict, then tabulate who detected what.
 on:
+  # The head-to-head explores generated schedules for every corpus configuration (about 35 minutes
+  # of parallel jobs), so it runs after merging, nightly and on demand rather than on every PR.
+  push:
+    branches: [main]
+    paths: ["apps/**", "examples/**", "libs/**", "scenarios/**", "scripts/**", ".github/workflows/evaluation.yml"]
+  schedule:
+    - cron: "41 10 * * *"
   workflow_dispatch:
-  pull_request:
-    paths:
-      - "apps/**"
-      - "examples/**"
-      - "libs/**"
-      - "scenarios/**"
-      - "scripts/evaluate-config.sh"
-      - ".github/workflows/evaluation.yml"
 
 permissions:
   contents: read

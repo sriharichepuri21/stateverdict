@@ -43,7 +43,8 @@ down first ([full results](docs/evaluation/results.md)):
 
 Both caught every bug. Three of the normal tests also failed on a *harmless* change, because they
 check how the code works rather than what the customer gets. StateVerdict knew nothing about the code
-and raised no false alarm.
+and raised no false alarm. On this corpus StateVerdict was **more selective**, not more sensitive. Six
+defects and three controls are too few to claim it is better in general.
 
 **On someone else's app.** StateVerdict was pointed at
 [a popular open-source Kafka shop](https://github.com/piomin/sample-spring-kafka-microservices) written
@@ -124,8 +125,26 @@ flowchart LR
 
 The hook is a few lines in each service, switched on only in test mode: messages pass through it,
 and StateVerdict can tell it to hold, delay or repeat one exact message for one test run. Because it
-acts on a specific message (not on the network), the same accident happens every time, and every
-result is repeated 10 times to prove it is not luck.
+acts on a specific message (not on the network), **the same fault is injected the same way every
+time**. The rest of the system still runs with real timing, so the *outcome* is not guaranteed to be
+identical. That is why every result is repeated 10 times and reported as a count: 10/10, or 9/10
+when a race does not always go the same way (it has happened, and is recorded).
+
+### What it needs from your application
+
+StateVerdict is **not a drop-in, black-box tester**. A service under test needs three things:
+
+1. **The hook in each message listener** that should receive faults (the
+   `stateverdict-dispatch` library: one dependency and a few lines per listener). It is inert unless
+   test mode is switched on.
+2. **A test-only way to read committed state**: an endpoint or query that returns the rows the
+   rules check, such as orders, charges and refunds.
+3. **A way to tie messages to a test run**: a correlation id carried on messages, or an id the test
+   chooses, such as the order id.
+
+For the external app this was **7 files and 143 added lines** (an
+[adapter patch](targets/piomin-saga/adapter.patch)), with no change to its business logic. That is a
+reasonable price for exact control, but it is a real integration step.
 
 <details>
 <summary><b>For engineers: scenarios, random exploration and shrinking</b></summary>
@@ -147,9 +166,11 @@ $SV run-schedule scenarios/cancel-while-payment-completion-held.json --trials 10
 
 `explore` generates random but valid schedules from a seed: faults on any message, a customer who
 cancels at different moments, and payments that are approved or declined. It saves every schedule
-that breaks a rule as a file you can rerun. The same seed always gives the same schedules. In the
-latest CI run, 35 of 60 broke the buggy version and all 60 passed against the fixed version
-([details](docs/results/exploration.md)).
+that breaks a rule as a file you can rerun. The same seed always gives the same **schedules**, but
+not necessarily the same **outcomes**: the services still run with real timing. On the external app,
+two runs of the same 60 schedules found 46 and 45 failures. Treat a finding as a lead, then confirm
+it with `--trials 10`. In CI run 39056506235, 35 of 60 broke the buggy version and all 60 passed
+against the fixed version ([details](docs/results/exploration.md)).
 
 ```bash
 $SV explore --iterations 60 --seed 42
@@ -203,8 +224,16 @@ $SV replay-evidence artifacts/dup.json        # same verdict, no services contac
 ```
 
 Developing with Java 21 and Maven: `mvn -B verify` runs all 184 tests, using Testcontainers for
-PostgreSQL and Kafka. CI also runs the demo, every measurement above, the planted-bug evaluation and
-the external app on every pull request.
+PostgreSQL and Kafka.
+
+| Workflow | When | What | Time |
+|---|---|---|---|
+| `ci` | every pull request | build, 184 tests, the demo, and the **fixed regression schedules** (hand-written, 10 runs each) on both apps | about 12 minutes, in parallel |
+| `exploration` | nightly, or on demand | **randomized** exploration and shrinking on both apps | about an hour |
+| `evaluation` | after merging, nightly, or on demand | the planted-bug head-to-head | about 35 minutes, in parallel |
+
+Slow, randomized campaigns are kept out of pull requests on purpose. A pull request should get a fast,
+repeatable answer.
 </details>
 
 <details>
@@ -215,9 +244,35 @@ the external app on every pull request.
   are out of scope.
 - Every result is repeated 10 times on one kind of CI machine. That is enough to catch a flaky
   result, not to make claims about very rare failures.
+- Faults are injected deterministically, but the system's timing is real. A seed reproduces the
+  generated scenarios, not their exact execution, so counts can differ slightly between runs (46 vs 45
+  of 60 on the external app).
+- A service needs the hook, a state-reading endpoint and a run id (see *What it needs from your
+  application*). It is not a black-box tester.
+- The planted-bug comparison is 6 defects and 3 controls. It shows better selectivity on that corpus,
+  not general superiority.
+- Exploring and shrinking the external app takes about an hour, so it runs nightly, not on every pull
+  request.
 - The planted bugs and the example shop's tests were written by the same person. The external app is
   the answer to that, and it is reported with what StateVerdict did and did not contribute.
 </details>
+
+## Where each number comes from
+
+Every published number traces back to one CI run. The run ids link to the logs; the commit is the
+pull-request commit that was measured.
+
+| Measurement | Result | Run | Commit (PR) |
+|---|---|---|---|
+| Planted bugs: normal tests vs StateVerdict | 6/6 and 1/3 false alarms vs 6/6 and 0/3 | [evaluation 39056506247](https://github.com/sriharichepuri21/stateverdict/actions/runs/39056506247) | `92f15df` (#16) |
+| Same message, one after the other vs at the same moment (M03) | PASS 10/10 vs FAIL 10/10 | [evaluation 39056506247](https://github.com/sriharichepuri21/stateverdict/actions/runs/39056506247) | `92f15df` (#16) |
+| Example shop, 60 generated schedules | 35/60 fail (buggy), 0/60 (fixed) | [ci 39056506235](https://github.com/sriharichepuri21/stateverdict/actions/runs/39056506235) | `92f15df` (#16) |
+| External app, hand-written predictions | 8/8 held, 10/10 runs each | [ci 39062748329](https://github.com/sriharichepuri21/stateverdict/actions/runs/39062748329) | `3bd7336` (#17) |
+| External app, 60 generated schedules | 45/60 fail (46/60 in an earlier run) | [ci 39072498345](https://github.com/sriharichepuri21/stateverdict/actions/runs/39072498345), [ci 39068790817](https://github.com/sriharichepuri21/stateverdict/actions/runs/39068790817) | `36f441c`, `e2e7096` (#18) |
+| External app, four shrunk failures | one cause each, 10/10 | [ci 39072498345](https://github.com/sriharichepuri21/stateverdict/actions/runs/39072498345) | `36f441c` (#18) |
+
+Later runs (nightly `exploration` and `evaluation`) re-measure these. If a count moves, the results
+documents record it rather than silently replacing it.
 
 ## Guiding principle
 

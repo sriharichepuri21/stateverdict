@@ -95,5 +95,7 @@ the payment service's messages and predicted damage to money. The generator foun
 the *other* service damages money too, through the order service's join. The shrinker reduced it to that
 one cause from a schedule with four faults.
 
-Cost: the external-target CI job takes about 52 minutes, most of it spent shrinking the never-decided
-order (17 minutes), because every run of it waits out the 25 s decision deadline.
+Cost: exploring and shrinking this target takes about 52 minutes, most of it spent shrinking the
+never-decided order (17 minutes), because every run of it waits out the 25 s decision deadline. It
+therefore runs in the nightly `exploration` workflow. Pull requests run only the eight hand-written
+regression schedules above.
