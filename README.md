@@ -41,6 +41,10 @@ down first ([full results](docs/evaluation/results.md)):
   <img alt="Normal tests caught 6 of 6 bugs with 1 false alarm out of 3 harmless changes. StateVerdict caught 6 of 6 with no false alarms." src="docs/assets/results-light.svg" width="100%">
 </picture>
 
+**On valid scenarios.** Scenarios a correct application should pass are just as important: a tool that
+cries wolf gets ignored. Across **510 generated valid fault scenarios on two applications, StateVerdict
+raised 0 false alarms** ([details and exclusions](docs/results/false-alarms.md)).
+
 Both caught every bug. Three of the normal tests also failed on a *harmless* change, because they
 check how the code works rather than what the customer gets. StateVerdict knew nothing about the code
 and raised no false alarm. On this corpus StateVerdict was **more selective**, not more sensitive. Six
@@ -260,6 +264,9 @@ repeatable answer.
   application*). It is not a black-box tester.
 - The planted-bug comparison is 6 defects and 3 controls. It shows better selectivity on that corpus,
   not general superiority.
+- 0 false alarms across 510 valid scenarios is a result on two applications and these generators, not
+  a zero false-positive rate in general. The external app's controls exclude its known defect triggers
+  on purpose.
 - Exploring and shrinking the external app takes about an hour, so it runs nightly, not on every pull
   request.
 - The planted bugs and the example shop's tests were written by the same person. The external app is
@@ -278,6 +285,8 @@ pull-request commit that was measured.
 | Example shop, 60 generated schedules | 35/60 fail (buggy), 0/60 (fixed) | [ci 39056506235](https://github.com/sriharichepuri21/stateverdict/actions/runs/39056506235) | `92f15df` (#16) |
 | External app, hand-written predictions | 8/8 held, 10/10 runs each | [ci 39062748329](https://github.com/sriharichepuri21/stateverdict/actions/runs/39062748329) | `3bd7336` (#17) |
 | External app, 60 generated schedules | 46, 45, then 44 of 60 fail | [ci 39068790817](https://github.com/sriharichepuri21/stateverdict/actions/runs/39068790817), [ci 39072498345](https://github.com/sriharichepuri21/stateverdict/actions/runs/39072498345), [exploration 39104915684](https://github.com/sriharichepuri21/stateverdict/actions/runs/39104915684) | `e2e7096`, `36f441c` (#18); `5bf862b` (main) |
+| Valid scenarios, both apps | 510/510 PASS, 0 false alarms | [exploration 39153869192](https://github.com/sriharichepuri21/stateverdict/actions/runs/39153869192) | `31e2c3c` (main) |
+| Shrinking, 6 multi-fault findings | 22 → 6 interventions (73% fewer), each 10/10 | [exploration 39104915684](https://github.com/sriharichepuri21/stateverdict/actions/runs/39104915684), re-confirmed in 39153869192 | `5bf862b`, `31e2c3c` (main) |
 | Planted bugs, re-measured after merge | unchanged: 6/6, 0/3 vs 1/3 | [evaluation 39104163018](https://github.com/sriharichepuri21/stateverdict/actions/runs/39104163018) | `5bf862b` (main) |
 | External app, four shrunk failures | one cause each, 10/10 | [ci 39072498345](https://github.com/sriharichepuri21/stateverdict/actions/runs/39072498345) | `36f441c` (#18) |
 
