@@ -27,6 +27,16 @@
         <module>examples/commerce/payment-service</module>
     </modules>
 
+    <profiles>
+        <!-- mvn -Pbenchmarks package: also builds the JMH benchmarks (benchmarks/). -->
+        <profile>
+            <id>benchmarks</id>
+            <modules>
+                <module>benchmarks/dispatch-overhead</module>
+            </modules>
+        </profile>
+    </profiles>
+
     <properties>
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
