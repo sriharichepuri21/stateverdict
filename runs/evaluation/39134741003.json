@@ -1,0 +1,167 @@
+{
+  "workflow": "evaluation",
+  "status": "complete",
+  "citable": true,
+  "reason": "",
+  "run": {
+    "id": "39134741003",
+    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/39134741003",
+    "commit": "2e18be4366b4db2ca2b496d4f4df1a433bf17689",
+    "event": "schedule"
+  },
+  "configurations": [
+    {
+      "config": "baseline",
+      "kind": "baseline",
+      "conventional": {
+        "detected": false,
+        "failed": 0,
+        "testsRun": 38
+      },
+      "stateverdict": {
+        "detected": false,
+        "rulesViolated": [],
+        "inconclusive": 0
+      }
+    },
+    {
+      "config": "C01",
+      "kind": "control",
+      "conventional": {
+        "detected": false,
+        "failed": 0,
+        "testsRun": 38
+      },
+      "stateverdict": {
+        "detected": false,
+        "rulesViolated": [],
+        "inconclusive": 0
+      }
+    },
+    {
+      "config": "C02",
+      "kind": "control",
+      "conventional": {
+        "detected": false,
+        "failed": 0,
+        "testsRun": 38
+      },
+      "stateverdict": {
+        "detected": false,
+        "rulesViolated": [],
+        "inconclusive": 0
+      }
+    },
+    {
+      "config": "C03",
+      "kind": "control",
+      "conventional": {
+        "detected": true,
+        "failed": 3,
+        "testsRun": 38
+      },
+      "stateverdict": {
+        "detected": false,
+        "rulesViolated": [],
+        "inconclusive": 0
+      }
+    },
+    {
+      "config": "M01",
+      "kind": "defect",
+      "conventional": {
+        "detected": true,
+        "failed": 4,
+        "testsRun": 38
+      },
+      "stateverdict": {
+        "detected": true,
+        "rulesViolated": [
+          "SV-002"
+        ],
+        "inconclusive": 0
+      }
+    },
+    {
+      "config": "M02",
+      "kind": "defect",
+      "conventional": {
+        "detected": true,
+        "failed": 2,
+        "testsRun": 38
+      },
+      "stateverdict": {
+        "detected": true,
+        "rulesViolated": [
+          "SV-003",
+          "SV-004"
+        ],
+        "inconclusive": 0
+      }
+    },
+    {
+      "config": "M03",
+      "kind": "defect",
+      "conventional": {
+        "detected": true,
+        "failed": 1,
+        "testsRun": 38
+      },
+      "stateverdict": {
+        "detected": true,
+        "rulesViolated": [
+          "SV-002"
+        ],
+        "inconclusive": 0
+      }
+    },
+    {
+      "config": "M04",
+      "kind": "defect",
+      "conventional": {
+        "detected": true,
+        "failed": 1,
+        "testsRun": 38
+      },
+      "stateverdict": {
+        "detected": true,
+        "rulesViolated": [
+          "SV-004"
+        ],
+        "inconclusive": 0
+      }
+    },
+    {
+      "config": "M05",
+      "kind": "defect",
+      "conventional": {
+        "detected": true,
+        "failed": 1,
+        "testsRun": 38
+      },
+      "stateverdict": {
+        "detected": true,
+        "rulesViolated": [
+          "SV-001"
+        ],
+        "inconclusive": 0
+      }
+    },
+    {
+      "config": "M06",
+      "kind": "defect",
+      "conventional": {
+        "detected": true,
+        "failed": 4,
+        "testsRun": 38
+      },
+      "stateverdict": {
+        "detected": true,
+        "rulesViolated": [
+          "SV-001"
+        ],
+        "inconclusive": 0
+      }
+    }
+  ]
+}
