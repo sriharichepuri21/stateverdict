@@ -1,0 +1,102 @@
+name: exploration
+
+# Randomized exploration and shrinking: generated schedules (seed 42), then one finding per rule
+# shrunk to a minimal schedule and confirmed over 10 runs. Not run on every pull request: it takes
+# about an hour, and a seed reproduces the generated schedules, not the exact timing of their
+# execution, so counts can differ slightly between runs. Fast, fixed regression schedules run in ci.yml.
+on:
+  schedule:
+    - cron: "23 9 * * *"
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: Generated schedules per campaign
+        default: "60"
+      seed:
+        description: Seed
+        default: "42"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: exploration
+  cancel-in-progress: false
+
+env:
+  ITERATIONS: ${{ inputs.iterations || '60' }}
+  SEED: ${{ inputs.seed || '42' }}
+
+jobs:
+  commerce:
+    name: "Commerce example: explore and shrink"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Build the StateVerdict CLI
+        run: mvn -B -q -pl apps/stateverdict-core -am package -DskipTests
+      - name: Start the stack with the naive handlers
+        run: docker compose -f infrastructure/compose/docker-compose.yml up --build -d --wait && scripts/wait-healthy.sh 8081 8082
+      - name: "Explore, naive handlers: must find SV-002 and SV-003"
+        run: scripts/explore.sh naive "${ITERATIONS}" "${SEED}" FAIL SV-002 SV-003
+      - name: "Shrink findings and confirm each over 10 runs"
+        run: scripts/shrink-findings.sh artifacts/explore-naive.json
+      - name: Switch to the fixed handlers
+        run: |
+          ORDER_COMPLETION_HANDLER=guarded PAYMENT_CAPTURE_HANDLER=idempotent \
+            docker compose -f infrastructure/compose/docker-compose.yml up -d --wait order-service payment-service
+          scripts/wait-healthy.sh 8081 8082
+      - name: "Explore, fixed handlers: the same schedules must find nothing"
+        run: scripts/explore.sh fixed "${ITERATIONS}" "${SEED}" PASS
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v5
+        # A failed upload (GitHub's artifact service) must not fail a green build.
+        continue-on-error: true
+        with:
+          name: exploration-commerce
+          path: artifacts/
+          if-no-files-found: ignore
+      - name: Stop the stack
+        if: always()
+        run: docker compose -f infrastructure/compose/docker-compose.yml down -v
+
+  external:
+    name: "External target: explore and shrink"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Build the StateVerdict CLI
+        run: mvn -B -q -pl apps/stateverdict-core -am package -DskipTests
+      - name: Fetch the target at its pinned commit, apply the adapter, build it
+        run: targets/piomin-saga/prepare.sh
+      - name: Start the patched target
+        run: docker compose -f targets/piomin-saga/docker-compose.yml up -d --wait broker && docker compose -f targets/piomin-saga/docker-compose.yml up -d
+      - name: Wait until the target decides an order end to end
+        run: targets/piomin-saga/wait-ready.sh
+      - name: Explore generated schedules and shrink one finding per kind
+        run: targets/piomin-saga/explore-and-shrink.sh "${ITERATIONS}" "${SEED}"
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v5
+        # A failed upload (GitHub's artifact service) must not fail a green build.
+        continue-on-error: true
+        with:
+          name: exploration-external
+          path: artifacts/
+          if-no-files-found: ignore
+      - name: Stop the target
+        if: always()
+        run: docker compose -f targets/piomin-saga/docker-compose.yml down -v
