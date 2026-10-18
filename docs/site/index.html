@@ -201,6 +201,8 @@
     <button type="button" data-side="sv" aria-pressed="true">StateVerdict (4 business rules)</button>
   </div>
   <div class="grid" id="grid"></div>
+  <p class="narrow" style="font-size:0.95rem;color:var(--soft)">Both caught every bug; StateVerdict raised fewer false
+    alarms. Nine changes are a small sample: this shows better selectivity on this set, not that it is better in general.</p>
   <p class="detail" id="detail" aria-live="polite">Tap a tile to see what was changed.</p>
   <div class="score" id="score"></div>
 </div></section>
@@ -213,7 +215,7 @@
     appear out of nothing, and that a repeated message charges the customer twice.</p>
   <div class="bigfacts">
     <div><b>8 of 8</b>predictions written before the first run came true</div>
-    <div><b>45 of 60</b>randomly generated scenarios broke the app</div>
+    <div><b>45 of 60</b>randomly generated scenarios broke the app (46 in an earlier run)</div>
     <div><b>4 of 4</b>failures shrunk to a single cause, each confirmed 10 of 10</div>
   </div>
   <p class="narrow" style="margin-top:24px">A random scenario usually does several things at once. StateVerdict then
@@ -226,18 +228,25 @@
   <h2>How it works</h2>
   <ol class="how">
     <li><h3>Cause the accident</h3><p>A small hook inside each service lets StateVerdict hold, delay or repeat one
-      exact message, so the problem happens on demand, not by luck.</p></li>
+      exact message. The fault is the same every time; the rest of the system runs with real timing. It
+      needs a small hook in each service, so it is not a black-box tester.</p></li>
     <li><h3>Read the databases</h3><p>It ignores status codes and logs. It reads what was actually saved: orders,
       charges, refunds. Every reading is kept as evidence.</p></li>
     <li><h3>Give a verdict</h3><p>Business rules decide PASS or FAIL. If the evidence is missing it says
-      INCONCLUSIVE, never PASS. Each result is repeated to check it is not luck.</p></li>
+      INCONCLUSIVE, never PASS. Because timing still varies, each result is repeated 10 times and
+      reported as a count.</p></li>
   </ol>
 </div></section>
 </main>
 
 <footer><div class="wrap">
-  StateVerdict is open source (Apache-2.0). Every number on this page comes from runs in the project's CI; see the
-  <a href="https://github.com/sriharichepuri21/stateverdict">repository</a> for the measurements and their limits.
+  StateVerdict is open source (Apache-2.0). Every number on this page comes from a specific CI run: planted bugs from
+  <a href="https://github.com/sriharichepuri21/stateverdict/actions/runs/39056506247">evaluation 39056506247</a>; the external
+  app's predictions from <a href="https://github.com/sriharichepuri21/stateverdict/actions/runs/39062748329">ci 39062748329</a>,
+  and its generated scenarios and shrinking from
+  <a href="https://github.com/sriharichepuri21/stateverdict/actions/runs/39072498345">ci 39072498345</a> (an earlier run on the
+  same seed found 46 of 60 rather than 45). See the <a href="https://github.com/sriharichepuri21/stateverdict#where-each-number-comes-from">repository</a>
+  for every measurement and its limits.
 </div></footer>
 
 <script>
