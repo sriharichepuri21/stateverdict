@@ -37,19 +37,33 @@ jobs:
           cache: maven
       - name: Run both approaches against ${{ matrix.config }}
         run: scripts/evaluate-config.sh ${{ matrix.config }}
-      - uses: actions/upload-artifact@v5
+      - name: Upload evidence
+        id: up1
         if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
         with:
           name: eval-${{ matrix.config }}
           path: artifacts/eval/
           if-no-files-found: ignore
+      - name: Upload evidence (retry)
+        if: always() && steps.up1.outcome == 'failure'
+        uses: actions/upload-artifact@v5
+        with:
+          name: eval-${{ matrix.config }}
+          path: artifacts/eval/
+          if-no-files-found: ignore
+          overwrite: true
 
   summarise:
     name: Summarise the head-to-head
     needs: evaluate
     if: always()
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v5
         with:
           pattern: eval-*
@@ -61,7 +75,13 @@ jobs:
           jq -s 'map(select(type == "object" and has("config") and has("junit")))
                  | sort_by(.config | if . == "baseline" then "0" else . end)' eval/*.json > results.json
           echo "configurations: $(jq 'length' results.json)"
-          [ "$(jq 'length' results.json)" -eq 10 ] || { echo "::error::expected 10 configuration results"; exit 1; }
+          if [ "$(jq 'length' results.json)" -ne 10 ]; then
+            # Missing evidence for any configuration: record the run as incomplete and do not publish it.
+            python3 scripts/record-evidence.py evaluation incomplete . record.json "only $(jq 'length' results.json) of 10 configuration results" || true
+            scripts/publish-evidence.sh record.json evaluation
+            echo "::error title=Evidence incomplete::expected 10 configuration results. This run's figures must not be published or cited."
+            exit 1
+          fi
           jq -r '
             def mark(kind; detected):
               if kind == "defect" then (if detected then "caught" else "MISSED" end)
@@ -85,3 +105,8 @@ jobs:
           path: |
             results.json
             table.md
+      - name: Record the evidence on the evidence branch
+        run: |
+          python3 scripts/record-evidence.py evaluation complete . record.json
+          scripts/publish-evidence.sh record.json evaluation
+          echo "::notice title=Evidence recorded::runs/evaluation/${GITHUB_RUN_ID}.json on the evidence branch (citable)"

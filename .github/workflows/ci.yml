@@ -134,7 +134,8 @@ jobs:
           scripts/measure-schedule.sh scenarios/duplicate-payment-request.json 10 PASS duplicate-schedule-fixed
           scripts/measure-schedule.sh scenarios/concurrent-duplicate-payment-request.json 10 PASS concurrent-duplicate-fixed
           scripts/measure-schedule.sh scenarios/cancel-while-payment-completion-held.json 10 PASS cancel-race-fixed
-      - name: Upload StateVerdict reports
+      - id: report1
+        name: Upload StateVerdict reports
         if: always()
         uses: actions/upload-artifact@v5
         # A failed upload (GitHub's artifact service) must not fail a green build.
@@ -143,6 +144,9 @@ jobs:
           name: stateverdict-reports
           path: artifacts/
           if-no-files-found: ignore
+      - name: Warn if the report upload failed
+        if: always() && steps.report1.outcome == 'failure'
+        run: echo "::warning title=Report not uploaded::stateverdict-reports could not be uploaded (GitHub artifact service). The verdicts above are unaffected; these reports are diagnostics, not published evidence."
       - name: Service logs
         if: always()
         run: docker compose -f infrastructure/compose/docker-compose.yml logs --no-color
@@ -176,7 +180,8 @@ jobs:
           echo "::notice title=Demo step 2 output::${step2}"
           summary=$(sed -n '/^Summary/,$p' artifacts/demo-transcript.txt | grep -v '^=*$' | encode)
           echo "::notice title=Demo summary::${summary}"
-      - name: Upload demo reports
+      - id: report2
+        name: Upload demo reports
         if: always()
         uses: actions/upload-artifact@v5
         # A failed upload (GitHub's artifact service) must not fail a green build.
@@ -185,6 +190,9 @@ jobs:
           name: demo-reports
           path: artifacts/
           if-no-files-found: ignore
+      - name: Warn if the report upload failed
+        if: always() && steps.report2.outcome == 'failure'
+        run: echo "::warning title=Report not uploaded::demo-reports could not be uploaded (GitHub artifact service). The verdicts above are unaffected; these reports are diagnostics, not published evidence."
 
   external-target:
     name: "External target: hand-written regression schedules"
@@ -207,7 +215,8 @@ jobs:
         run: targets/piomin-saga/wait-ready.sh
       - name: "Measure every schedule, 10 clean-state trials each"
         run: targets/piomin-saga/measure.sh 10
-      - name: Upload reports
+      - id: report3
+        name: Upload reports
         if: always()
         uses: actions/upload-artifact@v5
         # A failed upload (GitHub's artifact service) must not fail a green build.
@@ -216,6 +225,9 @@ jobs:
           name: piomin-saga-reports
           path: artifacts/
           if-no-files-found: ignore
+      - name: Warn if the report upload failed
+        if: always() && steps.report3.outcome == 'failure'
+        run: echo "::warning title=Report not uploaded::piomin-saga-reports could not be uploaded (GitHub artifact service). The verdicts above are unaffected; these reports are diagnostics, not published evidence."
       - name: Service logs
         if: always()
         run: docker compose -f targets/piomin-saga/docker-compose.yml logs --no-color | tail -400

@@ -31,6 +31,8 @@ jobs:
   commerce:
     name: "Commerce example: explore and shrink"
     runs-on: ubuntu-24.04
+    outputs:
+      evidence: ${{ steps.up1.outcome == 'success' || steps.up2.outcome == 'success' }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
@@ -54,15 +56,27 @@ jobs:
           scripts/wait-healthy.sh 8081 8082
       - name: "Explore, fixed handlers: the same schedules must find nothing"
         run: scripts/explore.sh fixed "${ITERATIONS}" "${SEED}" PASS
-      - name: Upload reports
+      # Benchmark evidence is not optional: try twice, and report the outcome to the record job,
+      # which refuses to publish figures from a run whose evidence is missing.
+      - name: Upload evidence
+        id: up1
         if: always()
-        uses: actions/upload-artifact@v5
-        # A failed upload (GitHub's artifact service) must not fail a green build.
         continue-on-error: true
+        uses: actions/upload-artifact@v5
         with:
           name: exploration-commerce
           path: artifacts/
           if-no-files-found: ignore
+      - name: Upload evidence (retry)
+        id: up2
+        if: always() && steps.up1.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: exploration-commerce
+          path: artifacts/
+          if-no-files-found: ignore
+          overwrite: true
       - name: Stop the stack
         if: always()
         run: docker compose -f infrastructure/compose/docker-compose.yml down -v
@@ -70,6 +84,8 @@ jobs:
   external:
     name: "External target: explore and shrink"
     runs-on: ubuntu-24.04
+    outputs:
+      evidence: ${{ steps.up1.outcome == 'success' || steps.up2.outcome == 'success' }}
     timeout-minutes: 100
     steps:
       - uses: actions/checkout@v5
@@ -88,15 +104,70 @@ jobs:
         run: targets/piomin-saga/wait-ready.sh
       - name: Explore generated schedules and shrink one finding per kind
         run: targets/piomin-saga/explore-and-shrink.sh "${ITERATIONS}" "${SEED}"
-      - name: Upload reports
+      # Benchmark evidence is not optional: try twice, and report the outcome to the record job,
+      # which refuses to publish figures from a run whose evidence is missing.
+      - name: Upload evidence
+        id: up1
         if: always()
-        uses: actions/upload-artifact@v5
-        # A failed upload (GitHub's artifact service) must not fail a green build.
         continue-on-error: true
+        uses: actions/upload-artifact@v5
         with:
           name: exploration-external
           path: artifacts/
           if-no-files-found: ignore
+      - name: Upload evidence (retry)
+        id: up2
+        if: always() && steps.up1.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: exploration-external
+          path: artifacts/
+          if-no-files-found: ignore
+          overwrite: true
       - name: Stop the target
         if: always()
         run: docker compose -f targets/piomin-saga/docker-compose.yml down -v
+
+  record:
+    name: Record the evidence
+    needs: [commerce, external]
+    if: always()
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        if: needs.commerce.outputs.evidence == 'true'
+        with:
+          name: exploration-commerce
+          path: evidence/commerce
+      - uses: actions/download-artifact@v5
+        if: needs.external.outputs.evidence == 'true'
+        with:
+          name: exploration-external
+          path: evidence/external
+      - name: Write the record and publish it to the evidence branch
+        env:
+          COMMERCE_EVIDENCE: ${{ needs.commerce.outputs.evidence }}
+          EXTERNAL_EVIDENCE: ${{ needs.external.outputs.evidence }}
+          COMMERCE_RESULT: ${{ needs.commerce.result }}
+          EXTERNAL_RESULT: ${{ needs.external.result }}
+        run: |
+          status=complete; reason=""
+          [ "${COMMERCE_EVIDENCE}" = "true" ] || { status=incomplete; reason="commerce evidence was not uploaded"; }
+          [ "${EXTERNAL_EVIDENCE}" = "true" ] || { status=incomplete; reason="${reason:+${reason}; }external evidence was not uploaded"; }
+          for r in "commerce:${COMMERCE_RESULT}" "external:${EXTERNAL_RESULT}"; do
+            [ "${r#*:}" = success ] || { status=incomplete; reason="${reason:+${reason}; }${r%%:*} job ${r#*:}"; }
+          done
+          set +e
+          python3 scripts/record-evidence.py exploration "${status}" evidence record.json "${reason}"
+          citable=$?
+          set -e
+          scripts/publish-evidence.sh record.json exploration
+          if [ "${citable}" -ne 0 ]; then
+            echo "::error title=Evidence incomplete::$(jq -r .reason record.json). This run's figures must not be published or cited; the last citable run stays in runs/exploration/latest.json on the evidence branch."
+            exit 1
+          fi
+          echo "::notice title=Evidence recorded::runs/exploration/${GITHUB_RUN_ID}.json on the evidence branch (citable)"
