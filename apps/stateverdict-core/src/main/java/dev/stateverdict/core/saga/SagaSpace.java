@@ -26,8 +26,26 @@ import java.util.Random;
  * <h2>Reductions, biggest first</h2>
  * Remove a fault; make the order affordable, or in stock; then simplify a fault (fewer copies,
  * concurrent copies delivered one after another, half the delay).
+ *
+ * <h2>Control mode</h2>
+ * With {@code controls = true} the generator produces only <em>valid</em> scenarios: ones the target
+ * is designed to handle, so every run should PASS and any FAIL is a false alarm, or a defect outside
+ * the three already known. Faults are limited to delays of 100 to 2000 ms (well inside the 10 s join
+ * window) on any of the four messages, and the order is either affordable and in stock, or rejected by
+ * both services. The known defect triggers are excluded on purpose and say so in the results: a
+ * rejection by only one service, duplicates, and delays beyond the join window.
  */
 public final class SagaSpace implements ScheduleSpace<SagaSchedule> {
+
+    private final boolean controls;
+
+    public SagaSpace() {
+        this(false);
+    }
+
+    public SagaSpace(boolean controls) {
+        this.controls = controls;
+    }
 
     static final int PRICE = 100;
     static final int COUNT = 1;
@@ -54,6 +72,23 @@ public final class SagaSpace implements ScheduleSpace<SagaSchedule> {
     public Generator<SagaSchedule> generator(long seed) {
         Random random = new Random(seed);
         int[] generated = {0};
+        if (controls) {
+            return () -> {
+                generated[0]++;
+                List<SagaSchedule.Arm> arms = new ArrayList<>();
+                for (Target target : TARGETS) {
+                    if (random.nextInt(5) < 2) {
+                        arms.add(new SagaSchedule.Arm(target.service(), target.phase(),
+                                Fault.delay(100 + 100L * random.nextInt(20))));
+                    }
+                }
+                boolean bothReject = random.nextInt(10) < 3;
+                SagaSchedule.Order order = bothReject
+                        ? new SagaSchedule.Order(UNAFFORDABLE_PRICE, SHORT_COUNT, FUNDS, STOCK)
+                        : new SagaSchedule.Order(PRICE, COUNT, FUNDS, STOCK);
+                return new SagaSchedule("saga-control-s" + seed + "-" + generated[0], order, arms);
+            };
+        }
         return () -> {
             generated[0]++;
             List<SagaSchedule.Arm> arms = new ArrayList<>();

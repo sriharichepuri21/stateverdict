@@ -30,11 +30,41 @@ def exploration_summary(report):
             "rulesViolated": rules}
 
 
+def interventions(schedule):
+    """One per fault and per customer cancel (commerce), or per fault and per rejecting side (saga)."""
+    if not isinstance(schedule, dict):
+        return None
+    if "steps" in schedule:
+        return sum(1 for step in schedule["steps"] if step.get("type") in ("ARM", "CANCEL"))
+    order = schedule.get("order") or {}
+    short = int(order.get("price", 0) >= order.get("funds", 1)) + int(order.get("count", 0) >= order.get("stock", 1))
+    return len(schedule.get("arms") or []) + short
+
+
 def shrink_summary(report):
+    before, after = interventions(report.get("original")), interventions(report.get("minimized"))
     return {"status": report.get("status"), "targetRules": report.get("targetRules"),
+            "originalInterventions": before, "minimizedInterventions": after,
+            "reductionPercent": round(100 * (before - after) / before) if before and after is not None else None,
+            "candidatesTried": report.get("candidatesTried"), "runs": report.get("runs"),
+            "durationMs": report.get("durationMs"),
             "originalFailures": report.get("originalFailures"),
             "minimizedFailures": report.get("minimizedFailures"),
             "confirmTrials": report.get("confirmTrials"), "minimized": report.get("minimized")}
+
+
+def controls(directory, pattern):
+    """Valid-scenario control campaigns: every run should PASS; anything else is reported separately."""
+    out = {}
+    for path in sorted(Path(directory).glob(pattern)):
+        report = load(path)
+        if report and "verdictCounts" in report:
+            counts = report["verdictCounts"]
+            out[path.stem] = {"seed": report.get("seed"), "schedules": report.get("iterations"),
+                              "pass": counts.get("PASS", 0), "falseAlarmsOrFindings": counts.get("FAIL", 0),
+                              "inconclusive": counts.get("INCONCLUSIVE", 0), "error": counts.get("ERROR", 0)}
+    total = {k: sum(c[k] for c in out.values()) for k in ("schedules", "pass", "falseAlarmsOrFindings", "inconclusive", "error")}
+    return {"campaigns": out, "total": total}
 
 
 def shrinks(directory):
@@ -69,11 +99,15 @@ def main():
                 "naive": exploration_summary(load(root / "commerce" / "explore-naive.json")),
                 "fixed": exploration_summary(load(root / "commerce" / "explore-fixed.json")),
                 "shrinks": shrinks(root / "commerce" / "shrunk"),
+                "controls": controls(root / "commerce", "explore-fixed-s*.json"),
             }
             record["external"] = {
                 "explore": exploration_summary(load(root / "external" / "piomin-saga" / "explore.json")),
                 "shrinks": shrinks(root / "external" / "piomin-saga" / "shrunk"),
+                "controls": controls(root / "external" / "piomin-saga", "controls-s*.json"),
             }
+            record["jobResults"] = {"commerce": os.environ.get("COMMERCE_RESULT"),
+                                    "external": os.environ.get("EXTERNAL_RESULT")}
             missing = [name for name, value in [("commerce naive exploration", record["commerce"]["naive"]),
                                                 ("commerce fixed exploration", record["commerce"]["fixed"]),
                                                 ("external exploration", record["external"]["explore"])] if value is None]

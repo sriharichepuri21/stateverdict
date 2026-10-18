@@ -106,6 +106,28 @@ class SagaSpaceTest {
     }
 
     @Test
+    void controlModeGeneratesOnlyValidScenarios() {
+        ScheduleSpace.Generator<SagaSchedule> generator = new SagaSpace(true).generator(42);
+        Set<String> orderKinds = new java.util.HashSet<>();
+        boolean sawDelay = false;
+        for (int i = 0; i < 500; i++) {
+            SagaSchedule schedule = generator.next();
+            assertThat(schedule.problems()).isEmpty();
+            for (SagaSchedule.Arm arm : schedule.arms()) {
+                assertThat(arm.fault().type()).isEqualTo(Fault.DELAY);
+                assertThat(arm.fault().delayMs()).isBetween(100L, 2_000L);
+                sawDelay = true;
+            }
+            String kind = SagaSpace.orderKind(schedule.order());
+            assertThat(kind).isIn("order: affordable, in stock", "order: unaffordable and short of stock");
+            orderKinds.add(kind);
+        }
+        assertThat(sawDelay).isTrue();
+        assertThat(orderKinds).hasSize(2);
+        assertThat(new SagaSpace(true).generator(42).next().name()).startsWith("saga-control-s42-");
+    }
+
+    @Test
     void namesAreKeptAndRenamed() {
         SagaSchedule schedule = generate(1, 1).getFirst();
         assertThat(space.renamed(schedule, "x").name()).isEqualTo("x");
