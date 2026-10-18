@@ -50,6 +50,10 @@ check how the code works rather than what the customer gets. StateVerdict knew n
 and raised no false alarm. On this corpus StateVerdict was **more selective**, not more sensitive. Six
 defects and three controls are too few to claim it is better in general.
 
+**On cost.** The hook costs about **35 ns per message** in production mode. On the external app, latency
+with and without it was the same: **median 11 ms in all three builds**, 900 orders each, with no
+measurable difference in the mean ([measured](docs/results/overhead.md)).
+
 **On someone else's app.** StateVerdict was pointed at
 [a popular open-source Kafka shop](https://github.com/piomin/sample-spring-kafka-microservices) written
 by another developer, without changing its business logic ([results](targets/piomin-saga/RESULTS.md)):
@@ -150,7 +154,9 @@ StateVerdict is **not a drop-in, black-box tester**. A service under test needs 
 
 For the external app this was **7 files and 143 added lines** (an
 [adapter patch](targets/piomin-saga/adapter.patch)), with no change to its business logic. That is a
-reasonable price for exact control, but it is a real integration step.
+reasonable price for exact control, but it is a real integration step. At run time the hook is cheap: about 35 ns per
+message in production mode and about 1 µs in test mode, with no measurable end-to-end change on the
+external app ([overhead](docs/results/overhead.md)).
 
 <details>
 <summary><b>For engineers: scenarios, random exploration and shrinking</b></summary>
@@ -268,6 +274,8 @@ repeatable answer.
 - 0 false alarms across 510 valid scenarios is a result on two applications and these generators, not
   a zero false-positive rate in general. The external app's controls exclude its known defect triggers
   on purpose.
+- The overhead was measured on one app at a light load (10 orders per second). Throughput under
+  saturation, where test mode's per-message lock could matter, was not measured.
 - Exploring and shrinking the external app takes about an hour, so it runs nightly, not on every pull
   request.
 - The planted bugs and the example shop's tests were written by the same person. The external app is
@@ -288,6 +296,7 @@ pull-request commit that was measured.
 | External app, 60 generated schedules | 46, 45, then 44 of 60 fail | [ci 39068790817](https://github.com/sriharichepuri21/stateverdict/actions/runs/39068790817), [ci 39072498345](https://github.com/sriharichepuri21/stateverdict/actions/runs/39072498345), [exploration 39104915684](https://github.com/sriharichepuri21/stateverdict/actions/runs/39104915684) | `e2e7096`, `36f441c` (#18); `5bf862b` (main) |
 | Valid scenarios, both apps | 510/510 PASS, 0 false alarms | [exploration 39153869192](https://github.com/sriharichepuri21/stateverdict/actions/runs/39153869192) | `31e2c3c` (main) |
 | Shrinking, 6 multi-fault findings | 22 → 6 interventions (73% fewer), each 10/10 | [exploration 39104915684](https://github.com/sriharichepuri21/stateverdict/actions/runs/39104915684), re-confirmed in 39153869192 | `5bf862b`, `31e2c3c` (main) |
+| Adapter overhead, no fault injected | +35 ns per message (production mode), +1.05 µs (test mode); end to end 11 ms median in all three builds, mean +0.03 / +0.08 ms (95% CIs include 0) | [benchmark 39168087308](https://github.com/sriharichepuri21/stateverdict/actions/runs/39168087308) | `81563c4` (main) |
 | Planted bugs, re-measured after merge | unchanged: 6/6, 0/3 vs 1/3 | [evaluation 39104163018](https://github.com/sriharichepuri21/stateverdict/actions/runs/39104163018) | `5bf862b` (main) |
 | External app, four shrunk failures | one cause each, 10/10 | [ci 39072498345](https://github.com/sriharichepuri21/stateverdict/actions/runs/39072498345) | `36f441c` (#18) |
 
