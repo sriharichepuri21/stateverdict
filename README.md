@@ -180,8 +180,15 @@ $SV explore --iterations 60 --seed 42
 
 `shrink` removes one fault or step at a time, keeps a removal only if the smaller scenario still
 fails **every one** of 3 runs, and stops when nothing more can go. The result is confirmed over 10
-runs. A failure that does not repeat reliably is measured and reported, not shrunk
-([details](docs/results/shrinking.md)).
+runs ([details](docs/results/shrinking.md)).
+
+A failure is shrunk only if the original fails **10 of 10** confirmation runs. This is a deliberate,
+conservative policy, not a property of the problem. At 9/10, a smaller candidate that passes once
+cannot be told apart from the original's own miss, so the search could throw away a real cause. A
+9/10 failure is still a real finding: it is reported as UNRELIABLE with its measured rate, kept as a
+regression scenario, and left unshrunk. A looser policy, such as accepting a candidate whose failure
+rate is statistically indistinguishable from the original's, would shrink more at the cost of many more
+runs.
 
 ```bash
 $SV shrink artifacts/found/<finding>.json
@@ -273,6 +280,14 @@ pull-request commit that was measured.
 
 Later runs (nightly `exploration` and `evaluation`) re-measure these. If a count moves, the results
 documents record it rather than silently replacing it.
+
+**Publication rule.** Every `exploration` and `evaluation` run writes a compact record of its figures
+to the [`evidence` branch](https://github.com/sriharichepuri21/stateverdict/tree/evidence), which
+outlives GitHub's 90-day artifact retention. A run is **citable** only if all of its evidence was
+uploaded and recorded. If an upload fails (for example, a GitHub artifact-service outage), the run is
+recorded as *incomplete* with the reason, marked failed, and its figures are not published. The last
+citable run stays the reference. Ordinary diagnostic reports in `ci` are different: a failed upload
+there only adds a warning, because the test verdict does not depend on it.
 
 ## Guiding principle
 

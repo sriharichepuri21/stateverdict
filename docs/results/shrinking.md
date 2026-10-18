@@ -71,3 +71,13 @@ to one intervention, *DUPLICATE_CONCURRENT x2 on payment.requested*, and kept it
 sequential candidate passed. The minimized schedule failed 8/10 confirmation runs: a race reproduced
 reliably but not with certainty, and reported as such. In the same CI run, the no-fault cancel race
 again failed 9/10 and was classified UNRELIABLE.
+
+## The 10/10 threshold is a policy
+
+The shrinker refuses to shrink anything that does not fail every confirmation run (by default 10/10).
+That is a deliberate, conservative choice, not a law. Its cost: a real but intermittent failure, such
+as the no-fault cancel race at 9/10, is reported as UNRELIABLE and left at its original size. Its
+benefit: every accepted reduction is backed by a failure that never once passed, so a "removed" step
+was never removed because of one unlucky pass. Alternatives exist, such as comparing failure rates
+with a statistical test, or demanding k/k at a higher k for intermittent originals. They would shrink
+more and cost many more runs. The threshold is named in every shrink report.
