@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 272" width="880" height="272" role="img"
+  aria-label="Measured on 6 planted bugs and 3 harmless changes: normal tests caught 6 of 6 bugs with 1 false alarm; StateVerdict caught 6 of 6 with no false alarms.">
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
+    .bar { transform-box: fill-box; transform-origin: left; animation: grow 1.2s ease-out 1 both; }
+    @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    @media (prefers-reduced-motion: reduce) { .bar { animation: none; } }
+  </style>
+  <rect width="880" height="272" rx="14" fill="#F5F7F6"/>
+  <text x="40" y="34" font-size="12" fill="#5B6B66">Measured in CI on the same planted bugs. Fewer false alarms is better.</text>
+  <text x="40" y="64" font-size="15" font-weight="700" fill="#1E2A27">Planted bugs caught (6)</text><text x="40" y="99" font-size="13" fill="#5B6B66">Normal tests</text><rect x="300" y="84" width="420" height="22" rx="4" fill="#D3DCD8" opacity=".55"/><rect class="bar" x="300" y="84" width="420" height="22" rx="4" fill="#2C6E9B"/><text x="732" y="100" font-size="14" font-weight="700" fill="#1E2A27">6 of 6</text><text x="40" y="131" font-size="13" fill="#5B6B66">StateVerdict</text><rect x="300" y="116" width="420" height="22" rx="4" fill="#D3DCD8" opacity=".55"/><rect class="bar" x="300" y="116" width="420" height="22" rx="4" fill="#5A4FCF"/><text x="732" y="132" font-size="14" font-weight="700" fill="#1E2A27">6 of 6</text><text x="40" y="170" font-size="15" font-weight="700" fill="#1E2A27">False alarms on harmless changes (3)</text><text x="40" y="205" font-size="13" fill="#5B6B66">Normal tests</text><rect x="300" y="190" width="420" height="22" rx="4" fill="#D3DCD8" opacity=".55"/><rect class="bar" x="300" y="190" width="140" height="22" rx="4" fill="#2C6E9B"/><text x="732" y="206" font-size="14" font-weight="700" fill="#1E2A27">1 of 3</text><text x="40" y="237" font-size="13" fill="#5B6B66">StateVerdict</text><rect x="300" y="222" width="420" height="22" rx="4" fill="#D3DCD8" opacity=".55"/><text x="732" y="238" font-size="14" font-weight="700" fill="#1E2A27">0 of 3</text>
+</svg>
