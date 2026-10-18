@@ -85,7 +85,8 @@ public final class Main {
                 --payment-url (8092)  --stock-url (8093)  --deadline-ms (default 25000)  --trials  --report
               stateverdict explore-saga [options]   stateverdict shrink-saga SCHEDULE.json [options]
                 explore and shrink, against the external saga target (same options as explore and shrink,
-                plus --stock-url; URLs default as for run-saga)
+                plus --stock-url; URLs default as for run-saga). explore-saga --controls true generates only
+                valid scenarios (short delays; orders accepted or rejected by both), which should all PASS
               stateverdict replay-evidence REPORT.json
                 Re-evaluate the rules on a saved report's evidence. Contacts no service.
 
@@ -106,7 +107,7 @@ public final class Main {
     private static final java.util.Set<String> SAGA_OPTIONS = java.util.Set.of("--order-url", "--payment-url",
             "--stock-url", "--deadline-ms", "--trials", "--report");
     private static final java.util.Set<String> SAGA_EXPLORE_OPTIONS = java.util.Set.of("--order-url", "--payment-url",
-            "--stock-url", "--deadline-ms", "--iterations", "--seed", "--out", "--report", "--stop-on-first");
+            "--stock-url", "--deadline-ms", "--iterations", "--seed", "--out", "--report", "--stop-on-first", "--controls");
     private static final java.util.Set<String> SAGA_SHRINK_OPTIONS = java.util.Set.of("--order-url", "--payment-url",
             "--stock-url", "--deadline-ms", "--rules", "--trials", "--confirm", "--out", "--report");
     private static final java.util.Set<String> RUN_OPTIONS =
@@ -262,7 +263,8 @@ public final class Main {
     private static int exploreSaga(Map<String, String> options, PrintStream out) throws IOException, InterruptedException {
         JsonMapper json = JsonMapper.builder().build();
         SagaRunner runner = new SagaRunner(sagaConfig(options), SagaRunner.rules(), json);
-        return exploreWith(new SagaSpace(), runner::run, options, json, out);
+        boolean controls = Boolean.parseBoolean(options.getOrDefault("--controls", "false"));
+        return exploreWith(new SagaSpace(controls), runner::run, options, json, out);
     }
 
     /** The same campaign for any kind of schedule: only the space and the runner differ. */

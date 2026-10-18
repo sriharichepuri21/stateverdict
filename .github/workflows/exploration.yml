@@ -26,6 +26,8 @@ concurrency:
 env:
   ITERATIONS: ${{ inputs.iterations || '60' }}
   SEED: ${{ inputs.seed || '42' }}
+  # Seeds for the valid-scenario control campaigns (false-alarm measurement).
+  CONTROL_SEEDS: "1 2 3 4 5"
 
 jobs:
   commerce:
@@ -56,6 +58,16 @@ jobs:
           scripts/wait-healthy.sh 8081 8082
       - name: "Explore, fixed handlers: the same schedules must find nothing"
         run: scripts/explore.sh fixed "${ITERATIONS}" "${SEED}" PASS
+      # Valid-scenario controls: more generated fault schedules against the corrected application.
+      # Every one should PASS; any FAIL is a false alarm (or a defect in the fixed handlers).
+      - name: "Controls, fixed handlers: 5 more seeds, every schedule must PASS"
+        if: always()
+        run: |
+          status=0
+          for seed in ${CONTROL_SEEDS}; do
+            scripts/explore.sh "fixed-s${seed}" "${ITERATIONS}" "${seed}" PASS || status=1
+          done
+          exit "${status}"
       # Benchmark evidence is not optional: try twice, and report the outcome to the record job,
       # which refuses to publish figures from a run whose evidence is missing.
       - name: Upload evidence
@@ -102,7 +114,10 @@ jobs:
         run: docker compose -f targets/piomin-saga/docker-compose.yml up -d --wait broker && docker compose -f targets/piomin-saga/docker-compose.yml up -d
       - name: Wait until the target decides an order end to end
         run: targets/piomin-saga/wait-ready.sh
+      - name: "Controls: valid scenarios (short delays; accepted or doubly rejected orders) must all PASS"
+        run: targets/piomin-saga/controls.sh 30 ${CONTROL_SEEDS}
       - name: Explore generated schedules and shrink one finding per kind
+        if: always()
         run: targets/piomin-saga/explore-and-shrink.sh "${ITERATIONS}" "${SEED}"
       # Benchmark evidence is not optional: try twice, and report the outcome to the record job,
       # which refuses to publish figures from a run whose evidence is missing.
@@ -158,16 +173,28 @@ jobs:
           status=complete; reason=""
           [ "${COMMERCE_EVIDENCE}" = "true" ] || { status=incomplete; reason="commerce evidence was not uploaded"; }
           [ "${EXTERNAL_EVIDENCE}" = "true" ] || { status=incomplete; reason="${reason:+${reason}; }external evidence was not uploaded"; }
-          for r in "commerce:${COMMERCE_RESULT}" "external:${EXTERNAL_RESULT}"; do
-            [ "${r#*:}" = success ] || { status=incomplete; reason="${reason:+${reason}; }${r%%:*} job ${r#*:}"; }
-          done
+          # A failed gate (for example, a false alarm in a control campaign) is a result to report,
+          # not missing evidence, so it does not make the record incomplete; the record keeps the
+          # job results alongside the figures.
+          export COMMERCE_RESULT EXTERNAL_RESULT
           set +e
           python3 scripts/record-evidence.py exploration "${status}" evidence record.json "${reason}"
           citable=$?
           set -e
-          scripts/publish-evidence.sh record.json exploration
+          # Only runs of main are published; a run of a branch shows its record in the log only.
+          published=false
+          if [ "${GITHUB_REF}" = refs/heads/main ]; then
+            scripts/publish-evidence.sh record.json exploration
+            published=true
+          else
+            echo "Not main (${GITHUB_REF}): record not published"; cat record.json
+          fi
           if [ "${citable}" -ne 0 ]; then
             echo "::error title=Evidence incomplete::$(jq -r .reason record.json). This run's figures must not be published or cited; the last citable run stays in runs/exploration/latest.json on the evidence branch."
             exit 1
           fi
-          echo "::notice title=Evidence recorded::runs/exploration/${GITHUB_RUN_ID}.json on the evidence branch (citable)"
+          if [ "${published}" = true ]; then
+            echo "::notice title=Evidence recorded::runs/exploration/${GITHUB_RUN_ID}.json on the evidence branch (citable)"
+          else
+            echo "::notice title=Evidence not published::complete, but this run is not on main, so its figures must not be cited"
+          fi
