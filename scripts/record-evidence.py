@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Builds a compact, durable evidence record for one measurement run.
 
-  scripts/record-evidence.py exploration|evaluation STATUS INPUT_DIR OUTPUT.json [REASON]
+  scripts/record-evidence.py exploration|evaluation|benchmark STATUS INPUT_DIR OUTPUT.json [REASON]
 
 STATUS is "complete" (every report was uploaded and downloaded) or "incomplete". An incomplete
 record says which evidence is missing; its figures must not be published or cited. The record keeps
@@ -111,6 +111,21 @@ def main():
             missing = [name for name, value in [("commerce naive exploration", record["commerce"]["naive"]),
                                                 ("commerce fixed exploration", record["commerce"]["fixed"]),
                                                 ("external exploration", record["external"]["explore"])] if value is None]
+        elif kind == "benchmark":
+            jmh = load(root / "jmh" / "jmh.json")
+            overhead = load(root / "overhead" / "overhead.json")
+            record["dispatcher"] = None if jmh is None else [{
+                "benchmark": b["benchmark"].rsplit(".", 1)[-1],
+                "score": round(b["primaryMetric"]["score"], 2),
+                "error99_9": round(b["primaryMetric"]["scoreError"], 2),
+                "unit": b["primaryMetric"]["scoreUnit"],
+                "forks": b.get("forks"), "measurementIterations": b.get("measurementIterations"),
+            } for b in jmh]
+            record["externalApp"] = overhead
+            missing = [name for name, value in [("dispatcher microbenchmark", jmh),
+                                                ("external app overhead", overhead)] if value is None]
+            if overhead is not None and not overhead.get("complete"):
+                missing.append("a complete external app measurement (" + "; ".join(overhead.get("problems", [])) + ")")
         else:
             results = load(root / "results.json") or []
             record["configurations"] = [{

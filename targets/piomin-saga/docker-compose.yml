@@ -1,5 +1,7 @@
 # The external target, patched with the StateVerdict adapter (see README.md). Run prepare.sh first:
 # the services run the jars it builds, so nothing of the target is baked into an image here.
+# Two variables exist for the overhead benchmark (overhead.sh); the defaults are what every other
+# script uses: TARGET_BUILD, the directory holding the built services, and STATEVERDICT_DISPATCH_MODE.
 name: stateverdict-piomin-saga
 
 x-service: &service
@@ -38,7 +40,7 @@ services:
   order-service:
     <<: *service
     volumes:
-      - ../../build/targets/piomin-saga/order-service/target/order-service-1.0-SNAPSHOT.jar:/app/app.jar:ro
+      - ${TARGET_BUILD:-../../build/targets/piomin-saga}/order-service/target/order-service-1.0-SNAPSHOT.jar:/app/app.jar:ro
     ports:
       - "8091:8080"
 
@@ -46,9 +48,9 @@ services:
     <<: *service
     environment:
       <<: *env
-      STATEVERDICT_DISPATCH_MODE: controlled
+      STATEVERDICT_DISPATCH_MODE: ${STATEVERDICT_DISPATCH_MODE:-controlled}
     volumes:
-      - ../../build/targets/piomin-saga/payment-service/target/payment-service-1.0-SNAPSHOT.jar:/app/app.jar:ro
+      - ${TARGET_BUILD:-../../build/targets/piomin-saga}/payment-service/target/payment-service-1.0-SNAPSHOT.jar:/app/app.jar:ro
     ports:
       - "8092:8080"
 
@@ -56,8 +58,8 @@ services:
     <<: *service
     environment:
       <<: *env
-      STATEVERDICT_DISPATCH_MODE: controlled
+      STATEVERDICT_DISPATCH_MODE: ${STATEVERDICT_DISPATCH_MODE:-controlled}
     volumes:
-      - ../../build/targets/piomin-saga/stock-service/target/stock-service-1.0-SNAPSHOT.jar:/app/app.jar:ro
+      - ${TARGET_BUILD:-../../build/targets/piomin-saga}/stock-service/target/stock-service-1.0-SNAPSHOT.jar:/app/app.jar:ro
     ports:
       - "8093:8080"
