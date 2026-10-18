@@ -77,7 +77,7 @@ For the order, it chooses affordable or not, and in stock or not. Nothing in it 
 CI run [39072498345](https://github.com/sriharichepuri21/stateverdict/actions/runs/39072498345), seed 42:
 
 - **60 generated schedules: 45 FAIL, 15 PASS, no ERROR or INCONCLUSIVE.** All three rules were
-  violated. (The previous run on the same seed gave 46/14, so one schedule's outcome depends on timing.)
+  violated. (Runs on the same seed have given 46, 45 and 44 failures, so a couple of schedules' outcomes depend on timing. The nightly run is recorded on the `evidence` branch.)
 - The explorer found the rollback bug **without any fault**: an unaffordable order alone violated SAGA-2.
 
 Each kind of finding was then shrunk. A candidate was kept only if it failed 3/3, and the original and

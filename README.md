@@ -57,7 +57,7 @@ by another developer, without changing its business logic ([results](targets/pio
 | A reply that is 12 seconds late leaves the order **stuck forever** | One delayed reply; 6 seconds is not enough to break it |
 
 - **8 of 8** predictions written before the first run came true, each in 10 of 10 runs.
-- **45 of 60** randomly generated scenarios broke the app.
+- **44 to 46 of 60** randomly generated scenarios broke the app, across three runs of the same 60.
 - StateVerdict then **shrank** each failure to the single cause above, confirmed in 10 of 10 runs.
   One cause was not predicted at all: a repeat in the *stock* service makes the *customer* pay twice.
 
@@ -168,7 +168,7 @@ $SV run-schedule scenarios/cancel-while-payment-completion-held.json --trials 10
 cancels at different moments, and payments that are approved or declined. It saves every schedule
 that breaks a rule as a file you can rerun. The same seed always gives the same **schedules**, but
 not necessarily the same **outcomes**: the services still run with real timing. On the external app,
-two runs of the same 60 schedules found 46 and 45 failures. Treat a finding as a lead, then confirm
+three runs of the same 60 schedules found 46, 45 and 44 failures. Treat a finding as a lead, then confirm
 it with `--trials 10`. In CI run 39056506235, 35 of 60 broke the buggy version and all 60 passed
 against the fixed version ([details](docs/results/exploration.md)).
 
@@ -252,7 +252,7 @@ repeatable answer.
 - Every result is repeated 10 times on one kind of CI machine. That is enough to catch a flaky
   result, not to make claims about very rare failures.
 - Faults are injected deterministically, but the system's timing is real. A seed reproduces the
-  generated scenarios, not their exact execution, so counts can differ slightly between runs (46 vs 45
+  generated scenarios, not their exact execution, so counts can differ slightly between runs (44 to 46
   of 60 on the external app).
 - A service needs the hook, a state-reading endpoint and a run id (see *What it needs from your
   application*). It is not a black-box tester.
@@ -275,7 +275,8 @@ pull-request commit that was measured.
 | Same message, one after the other vs at the same moment (M03) | PASS 10/10 vs FAIL 10/10 | [evaluation 39056506247](https://github.com/sriharichepuri21/stateverdict/actions/runs/39056506247) | `92f15df` (#16) |
 | Example shop, 60 generated schedules | 35/60 fail (buggy), 0/60 (fixed) | [ci 39056506235](https://github.com/sriharichepuri21/stateverdict/actions/runs/39056506235) | `92f15df` (#16) |
 | External app, hand-written predictions | 8/8 held, 10/10 runs each | [ci 39062748329](https://github.com/sriharichepuri21/stateverdict/actions/runs/39062748329) | `3bd7336` (#17) |
-| External app, 60 generated schedules | 45/60 fail (46/60 in an earlier run) | [ci 39072498345](https://github.com/sriharichepuri21/stateverdict/actions/runs/39072498345), [ci 39068790817](https://github.com/sriharichepuri21/stateverdict/actions/runs/39068790817) | `36f441c`, `e2e7096` (#18) |
+| External app, 60 generated schedules | 46, 45, then 44 of 60 fail | [ci 39068790817](https://github.com/sriharichepuri21/stateverdict/actions/runs/39068790817), [ci 39072498345](https://github.com/sriharichepuri21/stateverdict/actions/runs/39072498345), [exploration 39104915684](https://github.com/sriharichepuri21/stateverdict/actions/runs/39104915684) | `e2e7096`, `36f441c` (#18); `5bf862b` (main) |
+| Planted bugs, re-measured after merge | unchanged: 6/6, 0/3 vs 1/3 | [evaluation 39104163018](https://github.com/sriharichepuri21/stateverdict/actions/runs/39104163018) | `5bf862b` (main) |
 | External app, four shrunk failures | one cause each, 10/10 | [ci 39072498345](https://github.com/sriharichepuri21/stateverdict/actions/runs/39072498345) | `36f441c` (#18) |
 
 Later runs (nightly `exploration` and `evaluation`) re-measure these. If a count moves, the results

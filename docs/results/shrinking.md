@@ -81,3 +81,9 @@ benefit: every accepted reduction is backed by a failure that never once passed,
 was never removed because of one unlucky pass. Alternatives exist, such as comparing failure rates
 with a statistical test, or demanding k/k at a higher k for intermittent originals. They would shrink
 more and cost many more runs. The threshold is named in every shrink report.
+
+## Update: the same race at 10/10 (exploration run 39104915684)
+
+In the first manually triggered nightly run, the no-fault cancel race failed 10/10, so it *was* shrunk,
+to the same "place the order, cancel it". The two earlier runs measured it at 9/10 and left it
+unshrunk. Its true failure rate is high but not certain. That is the case the 10/10 policy is for.
