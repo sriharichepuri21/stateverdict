@@ -4,10 +4,10 @@
   "citable": true,
   "reason": "",
   "run": {
-    "id": "39131190403",
-    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/39131190403",
-    "commit": "2e18be4366b4db2ca2b496d4f4df1a433bf17689",
-    "event": "schedule"
+    "id": "39153869192",
+    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/39153869192",
+    "commit": "31e2c3c2604928c6b09587498f0c11b8a5801f53",
+    "event": "workflow_dispatch"
   },
   "commerce": {
     "naive": {
@@ -39,6 +39,12 @@
         "targetRules": [
           "SV-003"
         ],
+        "originalInterventions": 1,
+        "minimizedInterventions": 1,
+        "reductionPercent": 0,
+        "candidatesTried": 0,
+        "runs": 10,
+        "durationMs": 67927,
         "originalFailures": 9,
         "minimizedFailures": 9,
         "confirmTrials": 10,
@@ -61,6 +67,12 @@
         "targetRules": [
           "SV-002"
         ],
+        "originalInterventions": 3,
+        "minimizedInterventions": 1,
+        "reductionPercent": 67,
+        "candidatesTried": 5,
+        "runs": 29,
+        "durationMs": 139295,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -90,6 +102,12 @@
         "targetRules": [
           "SV-003"
         ],
+        "originalInterventions": 3,
+        "minimizedInterventions": 1,
+        "reductionPercent": 67,
+        "candidatesTried": 3,
+        "runs": 27,
+        "durationMs": 191324,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -107,6 +125,57 @@
           "valid": true
         }
       }
+    },
+    "controls": {
+      "campaigns": {
+        "explore-fixed-s1": {
+          "seed": 1,
+          "schedules": 60,
+          "pass": 60,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        },
+        "explore-fixed-s2": {
+          "seed": 2,
+          "schedules": 60,
+          "pass": 60,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        },
+        "explore-fixed-s3": {
+          "seed": 3,
+          "schedules": 60,
+          "pass": 60,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        },
+        "explore-fixed-s4": {
+          "seed": 4,
+          "schedules": 60,
+          "pass": 60,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        },
+        "explore-fixed-s5": {
+          "seed": 5,
+          "schedules": 60,
+          "pass": 60,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        }
+      },
+      "total": {
+        "schedules": 300,
+        "pass": 300,
+        "falseAlarmsOrFindings": 0,
+        "inconclusive": 0,
+        "error": 0
+      }
     }
   },
   "external": {
@@ -114,8 +183,8 @@
       "seed": 42,
       "schedules": 60,
       "verdicts": {
-        "FAIL": 44,
-        "PASS": 16
+        "PASS": 16,
+        "FAIL": 44
       },
       "findings": 44,
       "rulesViolated": [
@@ -130,6 +199,12 @@
         "targetRules": [
           "SAGA-1"
         ],
+        "originalInterventions": 5,
+        "minimizedInterventions": 1,
+        "reductionPercent": 80,
+        "candidatesTried": 10,
+        "runs": 38,
+        "durationMs": 1018428,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -160,6 +235,12 @@
         "targetRules": [
           "SAGA-2"
         ],
+        "originalInterventions": 4,
+        "minimizedInterventions": 1,
+        "reductionPercent": 75,
+        "candidatesTried": 6,
+        "runs": 32,
+        "durationMs": 245893,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -190,6 +271,12 @@
         "targetRules": [
           "SAGA-2"
         ],
+        "originalInterventions": 4,
+        "minimizedInterventions": 1,
+        "reductionPercent": 75,
+        "candidatesTried": 4,
+        "runs": 30,
+        "durationMs": 394098,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -210,6 +297,12 @@
         "targetRules": [
           "SAGA-3"
         ],
+        "originalInterventions": 3,
+        "minimizedInterventions": 1,
+        "reductionPercent": 67,
+        "candidatesTried": 3,
+        "runs": 27,
+        "durationMs": 168727,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -225,6 +318,61 @@
           "valid": true
         }
       }
+    },
+    "controls": {
+      "campaigns": {
+        "controls-s1": {
+          "seed": 1,
+          "schedules": 30,
+          "pass": 30,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        },
+        "controls-s2": {
+          "seed": 2,
+          "schedules": 30,
+          "pass": 30,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        },
+        "controls-s3": {
+          "seed": 3,
+          "schedules": 30,
+          "pass": 30,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        },
+        "controls-s4": {
+          "seed": 4,
+          "schedules": 30,
+          "pass": 30,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        },
+        "controls-s5": {
+          "seed": 5,
+          "schedules": 30,
+          "pass": 30,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        }
+      },
+      "total": {
+        "schedules": 150,
+        "pass": 150,
+        "falseAlarmsOrFindings": 0,
+        "inconclusive": 0,
+        "error": 0
+      }
     }
+  },
+  "jobResults": {
+    "commerce": "success",
+    "external": "success"
   }
 }
