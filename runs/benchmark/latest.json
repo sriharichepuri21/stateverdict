@@ -1,0 +1,180 @@
+{
+  "workflow": "benchmark",
+  "status": "complete",
+  "citable": true,
+  "reason": "",
+  "run": {
+    "id": "39168087308",
+    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/39168087308",
+    "commit": "81563c41785cd0f6735aca679a9ebf82c0bef756",
+    "event": "push"
+  },
+  "dispatcher": [
+    {
+      "benchmark": "baseline",
+      "score": 2.33,
+      "error99_9": 0.02,
+      "unit": "ns/op",
+      "forks": 3,
+      "measurementIterations": 10
+    },
+    {
+      "benchmark": "controlled",
+      "score": 1056.85,
+      "error99_9": 55.45,
+      "unit": "ns/op",
+      "forks": 3,
+      "measurementIterations": 10
+    },
+    {
+      "benchmark": "direct",
+      "score": 37.58,
+      "error99_9": 0.2,
+      "unit": "ns/op",
+      "forks": 3,
+      "measurementIterations": 10
+    }
+  ],
+  "externalApp": {
+    "metric": "order event to the later of the payment and stock reservation replies (Kafka record timestamps)",
+    "complete": true,
+    "problems": [],
+    "configurations": {
+      "upstream": {
+        "bothReplies": {
+          "n": 900,
+          "medianMs": 11.0,
+          "p95Ms": 18.0,
+          "meanMs": 12.42
+        },
+        "paymentReply": {
+          "n": 900,
+          "medianMs": 11.0,
+          "p95Ms": 17.0,
+          "meanMs": 11.92
+        },
+        "stockReply": {
+          "n": 900,
+          "medianMs": 10.0,
+          "p95Ms": 17.0,
+          "meanMs": 11.43
+        },
+        "rounds": [
+          {
+            "round": 1,
+            "n": 300,
+            "medianMs": 11.0
+          },
+          {
+            "round": 2,
+            "n": 300,
+            "medianMs": 12.0
+          },
+          {
+            "round": 3,
+            "n": 300,
+            "medianMs": 11.0
+          }
+        ]
+      },
+      "direct": {
+        "bothReplies": {
+          "n": 900,
+          "medianMs": 11.0,
+          "p95Ms": 19.0,
+          "meanMs": 12.45
+        },
+        "paymentReply": {
+          "n": 900,
+          "medianMs": 11.0,
+          "p95Ms": 18.0,
+          "meanMs": 11.91
+        },
+        "stockReply": {
+          "n": 900,
+          "medianMs": 10.0,
+          "p95Ms": 17.0,
+          "meanMs": 11.44
+        },
+        "rounds": [
+          {
+            "round": 1,
+            "n": 300,
+            "medianMs": 11.0
+          },
+          {
+            "round": 2,
+            "n": 300,
+            "medianMs": 11.0
+          },
+          {
+            "round": 3,
+            "n": 300,
+            "medianMs": 11.0
+          }
+        ],
+        "vsUpstream": {
+          "medianDiffMs": 0.0,
+          "medianDiffCi95Ms": [
+            -1.0,
+            0.0
+          ],
+          "meanDiffMs": 0.03,
+          "meanDiffCi95Ms": [
+            -0.33,
+            0.38
+          ]
+        }
+      },
+      "controlled": {
+        "bothReplies": {
+          "n": 900,
+          "medianMs": 11.0,
+          "p95Ms": 19.0,
+          "meanMs": 12.5
+        },
+        "paymentReply": {
+          "n": 900,
+          "medianMs": 11.0,
+          "p95Ms": 18.0,
+          "meanMs": 11.93
+        },
+        "stockReply": {
+          "n": 900,
+          "medianMs": 11.0,
+          "p95Ms": 17.0,
+          "meanMs": 11.58
+        },
+        "rounds": [
+          {
+            "round": 1,
+            "n": 300,
+            "medianMs": 11.0
+          },
+          {
+            "round": 2,
+            "n": 300,
+            "medianMs": 11.0
+          },
+          {
+            "round": 3,
+            "n": 300,
+            "medianMs": 11.0
+          }
+        ],
+        "vsUpstream": {
+          "medianDiffMs": 0.0,
+          "medianDiffCi95Ms": [
+            -1.0,
+            0.5
+          ],
+          "meanDiffMs": 0.08,
+          "meanDiffCi95Ms": [
+            -0.27,
+            0.46
+          ]
+        }
+      }
+    }
+  }
+}
