@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Builds a compact, durable evidence record for one measurement run.
 
-  scripts/record-evidence.py exploration|evaluation|benchmark STATUS INPUT_DIR OUTPUT.json [REASON]
+  scripts/record-evidence.py exploration|evaluation|benchmark|mutation STATUS INPUT_DIR OUTPUT.json [REASON]
 
 STATUS is "complete" (every report was uploaded and downloaded) or "incomplete". An incomplete
 record says which evidence is missing; its figures must not be published or cited. The record keeps
@@ -111,6 +111,15 @@ def main():
             missing = [name for name, value in [("commerce naive exploration", record["commerce"]["naive"]),
                                                 ("commerce fixed exploration", record["commerce"]["fixed"]),
                                                 ("external exploration", record["external"]["explore"])] if value is None]
+        elif kind == "mutation":
+            summary = load(root / "mutation.json")
+            if summary is not None:
+                record["mutation"] = {k: summary.get(k) for k in
+                                      ("complete", "problems", "mutants", "junit", "stateverdict", "overlap",
+                                       "perClass", "stateverdictOnly", "junitOnly")}
+            missing = [] if summary is not None else ["the mutation summary"]
+            if summary is not None and not summary.get("complete"):
+                missing.append("a complete measurement (" + "; ".join(summary.get("problems", [])) + ")")
         elif kind == "benchmark":
             jmh = load(root / "jmh" / "jmh.json")
             overhead = load(root / "overhead" / "overhead.json")
