@@ -59,6 +59,8 @@ by another developer, without changing its business logic ([results](targets/pio
 - **8 of 8** predictions written before the first run came true, each in 10 of 10 runs.
 - **44 to 46 of 60** randomly generated scenarios broke the app, across three runs of the same 60.
 - StateVerdict then **shrank** each failure to the single cause above, confirmed in 10 of 10 runs.
+  Across both apps, 6 multi-fault findings went from 22 interventions to 6 (**73% fewer**, 67–80% each;
+  [measured](docs/results/shrink-metrics.md)).
   One cause was not predicted at all: a repeat in the *stock* service makes the *customer* pay twice.
 
 ## Try it
