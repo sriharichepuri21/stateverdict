@@ -54,6 +54,11 @@ defects and three controls are too few to claim it is better in general.
 with and without it was the same: **median 11 ms in all three builds**, 900 orders each, with no
 measurable difference in the mean ([measured](docs/results/overhead.md)).
 
+**Where it does not help.** On 58 mutants that PIT generated from the shop's code, the shop's unit tests
+caught 52 and StateVerdict 14, all of which the unit tests also caught
+([results](docs/evaluation/mutation.md)). Single-point code mistakes are what unit tests are for;
+StateVerdict is for what happens when messages arrive twice, late or out of order. Use both.
+
 **On someone else's app.** StateVerdict was pointed at
 [a popular open-source Kafka shop](https://github.com/piomin/sample-spring-kafka-microservices) written
 by another developer, without changing its business logic ([results](targets/piomin-saga/RESULTS.md)):
@@ -275,6 +280,8 @@ repeatable answer.
 - 0 false alarms across 510 valid scenarios is a result on two applications and these generators, not
   a zero false-positive rate in general. The external app's controls exclude its known defect triggers
   on purpose.
+- StateVerdict is not a replacement for unit tests: on PIT's generated mutants it caught none that the
+  unit tests missed. Its value is in delivery faults, which mutation operators do not produce.
 - The overhead was measured on one app at a light load (10 orders per second). Throughput under
   saturation, where test mode's per-message lock could matter, was not measured.
 - Exploring and shrinking the external app takes about an hour, so it runs nightly, not on every pull
@@ -298,6 +305,7 @@ pull-request commit that was measured.
 | Valid scenarios, both apps | 510/510 PASS, 0 false alarms | [exploration 39153869192](https://github.com/sriharichepuri21/stateverdict/actions/runs/39153869192) | `31e2c3c` (main) |
 | Shrinking, 6 multi-fault findings | 22 → 6 interventions (73% fewer), each 10/10 | [exploration 39104915684](https://github.com/sriharichepuri21/stateverdict/actions/runs/39104915684), re-confirmed in 39153869192 | `5bf862b`, `31e2c3c` (main) |
 | Adapter overhead, no fault injected | +35 ns per message (production mode), +1.05 µs (test mode); end to end 11 ms median in all three builds, mean +0.03 / +0.08 ms (95% CIs include 0) | [benchmark 39168087308](https://github.com/sriharichepuri21/stateverdict/actions/runs/39168087308) | `81563c4` (main) |
+| Mutation testing, 58 PIT mutants | JUnit 52 (89.7%), StateVerdict 14 (24.1%), StateVerdict only 0 | [mutation 39191757513](https://github.com/sriharichepuri21/stateverdict/actions/runs/39191757513) | `6dd4c5b` (main) |
 | Planted bugs, re-measured after merge | unchanged: 6/6, 0/3 vs 1/3 | [evaluation 39104163018](https://github.com/sriharichepuri21/stateverdict/actions/runs/39104163018) | `5bf862b` (main) |
 | External app, four shrunk failures | one cause each, 10/10 | [ci 39072498345](https://github.com/sriharichepuri21/stateverdict/actions/runs/39072498345) | `36f441c` (#18) |
 
