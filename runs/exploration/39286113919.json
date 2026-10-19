@@ -1,0 +1,378 @@
+{
+  "workflow": "exploration",
+  "status": "complete",
+  "citable": true,
+  "reason": "",
+  "run": {
+    "id": "39286113919",
+    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/39286113919",
+    "commit": "c94799e10777f7ceb9e247270afef8b7cbe26e02",
+    "event": "schedule"
+  },
+  "commerce": {
+    "naive": {
+      "seed": 42,
+      "schedules": 60,
+      "verdicts": {
+        "FAIL": 35,
+        "PASS": 25
+      },
+      "findings": 35,
+      "rulesViolated": [
+        "SV-002",
+        "SV-003",
+        "SV-004"
+      ]
+    },
+    "fixed": {
+      "seed": 42,
+      "schedules": 60,
+      "verdicts": {
+        "PASS": 60
+      },
+      "findings": 0,
+      "rulesViolated": []
+    },
+    "shrinks": {
+      "no-fault": {
+        "status": "MINIMIZED",
+        "targetRules": [
+          "SV-003"
+        ],
+        "originalInterventions": 1,
+        "minimizedInterventions": 1,
+        "reductionPercent": 0,
+        "candidatesTried": 1,
+        "runs": 21,
+        "durationMs": 147629,
+        "originalFailures": 10,
+        "minimizedFailures": 10,
+        "confirmTrials": 10,
+        "minimized": {
+          "name": "explore-s42-21-min",
+          "steps": [
+            {
+              "type": "PLACE_ORDER",
+              "amountCents": 129900
+            },
+            {
+              "type": "CANCEL"
+            }
+          ],
+          "valid": true
+        }
+      },
+      "sv-002": {
+        "status": "MINIMIZED",
+        "targetRules": [
+          "SV-002"
+        ],
+        "originalInterventions": 3,
+        "minimizedInterventions": 1,
+        "reductionPercent": 67,
+        "candidatesTried": 5,
+        "runs": 29,
+        "durationMs": 134315,
+        "originalFailures": 10,
+        "minimizedFailures": 10,
+        "confirmTrials": 10,
+        "minimized": {
+          "name": "explore-s42-12-min",
+          "steps": [
+            {
+              "type": "ARM",
+              "service": "PAYMENT",
+              "topic": "payment.requested",
+              "fault": {
+                "type": "DUPLICATE",
+                "copies": 2,
+                "delayMs": null
+              }
+            },
+            {
+              "type": "PLACE_ORDER",
+              "amountCents": 129900
+            }
+          ],
+          "valid": true
+        }
+      },
+      "sv-003": {
+        "status": "MINIMIZED",
+        "targetRules": [
+          "SV-003"
+        ],
+        "originalInterventions": 3,
+        "minimizedInterventions": 1,
+        "reductionPercent": 67,
+        "candidatesTried": 3,
+        "runs": 27,
+        "durationMs": 191204,
+        "originalFailures": 10,
+        "minimizedFailures": 10,
+        "confirmTrials": 10,
+        "minimized": {
+          "name": "explore-s42-29-min",
+          "steps": [
+            {
+              "type": "PLACE_ORDER",
+              "amountCents": 129900
+            },
+            {
+              "type": "CANCEL"
+            }
+          ],
+          "valid": true
+        }
+      }
+    },
+    "controls": {
+      "campaigns": {
+        "explore-fixed-s1": {
+          "seed": 1,
+          "schedules": 60,
+          "pass": 60,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        },
+        "explore-fixed-s2": {
+          "seed": 2,
+          "schedules": 60,
+          "pass": 60,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        },
+        "explore-fixed-s3": {
+          "seed": 3,
+          "schedules": 60,
+          "pass": 60,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        },
+        "explore-fixed-s4": {
+          "seed": 4,
+          "schedules": 60,
+          "pass": 60,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        },
+        "explore-fixed-s5": {
+          "seed": 5,
+          "schedules": 60,
+          "pass": 60,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        }
+      },
+      "total": {
+        "schedules": 300,
+        "pass": 300,
+        "falseAlarmsOrFindings": 0,
+        "inconclusive": 0,
+        "error": 0
+      }
+    }
+  },
+  "external": {
+    "explore": {
+      "seed": 42,
+      "schedules": 60,
+      "verdicts": {
+        "PASS": 15,
+        "FAIL": 45
+      },
+      "findings": 45,
+      "rulesViolated": [
+        "SAGA-1",
+        "SAGA-2",
+        "SAGA-3"
+      ]
+    },
+    "shrinks": {
+      "saga-1-undecided": {
+        "status": "MINIMIZED",
+        "targetRules": [
+          "SAGA-1"
+        ],
+        "originalInterventions": 5,
+        "minimizedInterventions": 1,
+        "reductionPercent": 80,
+        "candidatesTried": 10,
+        "runs": 38,
+        "durationMs": 1019156,
+        "originalFailures": 10,
+        "minimizedFailures": 10,
+        "confirmTrials": 10,
+        "minimized": {
+          "name": "saga-s42-11-min",
+          "order": {
+            "price": 100,
+            "count": 1,
+            "funds": 1000,
+            "stock": 10
+          },
+          "arms": [
+            {
+              "service": "PAYMENT",
+              "phase": "orders.reserve",
+              "fault": {
+                "type": "DELAY",
+                "copies": null,
+                "delayMs": 12000
+              }
+            }
+          ],
+          "valid": true
+        }
+      },
+      "saga-2-faults": {
+        "status": "MINIMIZED",
+        "targetRules": [
+          "SAGA-2"
+        ],
+        "originalInterventions": 4,
+        "minimizedInterventions": 1,
+        "reductionPercent": 75,
+        "candidatesTried": 6,
+        "runs": 32,
+        "durationMs": 245352,
+        "originalFailures": 10,
+        "minimizedFailures": 10,
+        "confirmTrials": 10,
+        "minimized": {
+          "name": "saga-s42-10-min",
+          "order": {
+            "price": 100,
+            "count": 1,
+            "funds": 1000,
+            "stock": 10
+          },
+          "arms": [
+            {
+              "service": "STOCK",
+              "phase": "orders.reserve",
+              "fault": {
+                "type": "DUPLICATE",
+                "copies": 2,
+                "delayMs": null
+              }
+            }
+          ],
+          "valid": true
+        }
+      },
+      "saga-2-rejected": {
+        "status": "MINIMIZED",
+        "targetRules": [
+          "SAGA-2"
+        ],
+        "originalInterventions": 4,
+        "minimizedInterventions": 1,
+        "reductionPercent": 75,
+        "candidatesTried": 4,
+        "runs": 30,
+        "durationMs": 394409,
+        "originalFailures": 10,
+        "minimizedFailures": 10,
+        "confirmTrials": 10,
+        "minimized": {
+          "name": "saga-s42-23-min",
+          "order": {
+            "price": 5000,
+            "count": 1,
+            "funds": 1000,
+            "stock": 10
+          },
+          "arms": [],
+          "valid": true
+        }
+      },
+      "saga-3-rejected": {
+        "status": "MINIMIZED",
+        "targetRules": [
+          "SAGA-3"
+        ],
+        "originalInterventions": 3,
+        "minimizedInterventions": 1,
+        "reductionPercent": 67,
+        "candidatesTried": 3,
+        "runs": 27,
+        "durationMs": 168806,
+        "originalFailures": 10,
+        "minimizedFailures": 10,
+        "confirmTrials": 10,
+        "minimized": {
+          "name": "saga-s42-9-min",
+          "order": {
+            "price": 100,
+            "count": 20,
+            "funds": 1000,
+            "stock": 10
+          },
+          "arms": [],
+          "valid": true
+        }
+      }
+    },
+    "controls": {
+      "campaigns": {
+        "controls-s1": {
+          "seed": 1,
+          "schedules": 30,
+          "pass": 30,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        },
+        "controls-s2": {
+          "seed": 2,
+          "schedules": 30,
+          "pass": 30,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        },
+        "controls-s3": {
+          "seed": 3,
+          "schedules": 30,
+          "pass": 30,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        },
+        "controls-s4": {
+          "seed": 4,
+          "schedules": 30,
+          "pass": 30,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        },
+        "controls-s5": {
+          "seed": 5,
+          "schedules": 30,
+          "pass": 30,
+          "falseAlarmsOrFindings": 0,
+          "inconclusive": 0,
+          "error": 0
+        }
+      },
+      "total": {
+        "schedules": 150,
+        "pass": 150,
+        "falseAlarmsOrFindings": 0,
+        "inconclusive": 0,
+        "error": 0
+      }
+    }
+  },
+  "jobResults": {
+    "commerce": "success",
+    "external": "success"
+  }
+}
