@@ -251,6 +251,7 @@ PostgreSQL and Kafka.
 | `exploration` | nightly, or on demand | **randomized** exploration and shrinking on both apps | about an hour |
 | `evaluation` | after merging, nightly, or on demand | the planted-bug head-to-head | about 35 minutes, in parallel |
 | `benchmark` | when the adapter or benchmark changes on main, or on demand | the adapter's **overhead** with no fault injected: a JMH microbenchmark of the dispatcher, and the external app end to end with and without the adapter | about 25 minutes, in parallel |
+| `mutation` | when the example shop changes on main, or on demand | **mutation testing**: PIT's generated mutants against the JUnit suite, and the same mutants deployed against StateVerdict ([method](docs/evaluation/mutation.md)) | about 80 minutes, in parallel |
 
 Slow, randomized campaigns are kept out of pull requests on purpose. A pull request should get a fast,
 repeatable answer.
@@ -303,7 +304,7 @@ pull-request commit that was measured.
 Later runs (nightly `exploration` and `evaluation`) re-measure these. If a count moves, the results
 documents record it rather than silently replacing it.
 
-**Publication rule.** Every `exploration`, `evaluation` and `benchmark` run writes a compact record of its figures
+**Publication rule.** Every `exploration`, `evaluation`, `benchmark` and `mutation` run writes a compact record of its figures
 to the [`evidence` branch](https://github.com/sriharichepuri21/stateverdict/tree/evidence), which
 outlives GitHub's 90-day artifact retention. A run is **citable** only if all of its evidence was
 uploaded and recorded. If an upload fails (for example, a GitHub artifact-service outage), the run is

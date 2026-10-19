@@ -90,4 +90,68 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <!--
+            Mutation testing (docs/evaluation/mutation.md): mvn -Pmutation test-compile pitest:mutationCoverage
+            Mutates the business logic of the production configuration only. Not mutated: the
+            deliberately broken variants and evaluation switches (the defect corpus), the read-only
+            state endpoints StateVerdict uses as evidence, configuration and plain records.
+            +EXPORT writes every mutant's bytecode, so the same mutants can be deployed and run
+            against StateVerdict.
+        -->
+        <profile>
+            <id>mutation</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.pitest</groupId>
+                        <artifactId>pitest-maven</artifactId>
+                        <version>1.30.0</version>
+                        <dependencies>
+                            <dependency>
+                                <groupId>org.pitest</groupId>
+                                <artifactId>pitest-junit5-plugin</artifactId>
+                                <version>1.2.3</version>
+                            </dependency>
+                        </dependencies>
+                        <configuration>
+                            <targetClasses>
+                                <param>dev.stateverdict.examples.payment.IdempotentCaptureHandler</param>
+                                <param>dev.stateverdict.examples.payment.PaymentDecision</param>
+                                <param>dev.stateverdict.examples.payment.CaptureRepository</param>
+                                <param>dev.stateverdict.examples.payment.RefundRepository</param>
+                                <param>dev.stateverdict.examples.payment.PaymentRequestedListener</param>
+                                <param>dev.stateverdict.examples.payment.RefundRequestedListener</param>
+                                <param>dev.stateverdict.examples.payment.PaymentEventsPublisher</param>
+                            </targetClasses>
+                            <targetTests>
+                                <param>dev.stateverdict.examples.payment.*</param>
+                            </targetTests>
+                            <excludedMethods>
+                                <param>captureWithoutAtomicClaim</param>
+                                <param>slowDown</param>
+                                <param>findByOrderId</param>
+                            </excludedMethods>
+                            <avoidCallsTo>
+                                <param>dev.stateverdict.examples.payment.Mutations</param>
+                                <param>org.slf4j</param>
+                            </avoidCallsTo>
+                            <features>
+                                <feature>+EXPORT</feature>
+                            </features>
+                            <outputFormats>
+                                <param>XML</param>
+                                <param>HTML</param>
+                            </outputFormats>
+                            <timestampedReports>false</timestampedReports>
+                            <threads>2</threads>
+                            <!-- Each fresh PIT JVM restarts Spring and the test containers (tens of seconds) before its
+                                 first test; a shorter limit turns that start-up into false TIMED_OUT results. -->
+                            <timeoutConstant>180000</timeoutConstant>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

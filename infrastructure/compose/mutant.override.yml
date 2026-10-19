@@ -1,0 +1,23 @@
+# Mutation testing only (docs/evaluation/mutation.md): run the services from prebuilt jars instead of
+# building images, so a mutant is deployed by swapping one jar.
+#   ORDER_JAR=... PAYMENT_JAR=... docker compose -f docker-compose.yml -f mutant.override.yml up -d
+# The fixed (production) handlers, as in the mutated build.
+services:
+  order-service:
+    build: !reset null
+    image: eclipse-temurin:21-jre
+    entrypoint: ["java", "-jar", "/app/app.jar"]
+    volumes:
+      - ${ORDER_JAR:?ORDER_JAR is required}:/app/app.jar:ro
+    environment:
+      ORDER_COMPLETION_HANDLER: guarded
+      EVALUATION_MUTATION: ""
+  payment-service:
+    build: !reset null
+    image: eclipse-temurin:21-jre
+    entrypoint: ["java", "-jar", "/app/app.jar"]
+    volumes:
+      - ${PAYMENT_JAR:?PAYMENT_JAR is required}:/app/app.jar:ro
+    environment:
+      PAYMENT_CAPTURE_HANDLER: idempotent
+      EVALUATION_MUTATION: ""

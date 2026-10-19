@@ -1,0 +1,168 @@
+name: mutation
+
+# Mutation testing head-to-head (docs/evaluation/mutation.md). PIT generates mutants of the example
+# shop's business logic and runs the shop's JUnit suite against them; the same mutants, exported as
+# bytecode, are then deployed one at a time and run against StateVerdict's standard suite. The result
+# is one table over one set of mutants: detected by both, by one, or by neither.
+# Takes over an hour of parallel jobs, so it runs after the measured code changes on main and on
+# request. On a pull request it runs only when the measurement itself changes.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "examples/**"
+      - "scenarios/**"
+      - "scripts/mutation/**"
+      - "infrastructure/compose/**"
+      - ".github/workflows/mutation.yml"
+  pull_request:
+    paths:
+      - "scripts/mutation/**"
+      - "infrastructure/compose/mutant.override.yml"
+      - ".github/workflows/mutation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pit:
+    name: "Generate mutants and run the JUnit suite (PIT)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Build the services and the StateVerdict CLI
+        run: mvn -B -q install -DskipTests
+      - name: Run PIT on both services (mutants exported as bytecode)
+        run: |
+          # On failure, Maven's errors also become annotations, readable without the full log.
+          mvn -B -fae -Pmutation -pl examples/commerce/order-service,examples/commerce/payment-service \
+            test-compile pitest:mutationCoverage > pit.log 2>&1 || {
+            grep -E '^\[ERROR\]' pit.log | head -25 | while IFS= read -r line; do echo "::error title=PIT::${line}"; done
+            tail -120 pit.log; exit 1; }
+          grep -E 'Generated [0-9]+ mutations|Killed [0-9]+|mutations per test|>> Line Coverage|>> Generated' pit.log || true
+      - name: List the mutants and plan the StateVerdict shards
+        id: plan
+        run: |
+          mkdir -p stage
+          for svc in order payment; do
+            cp "$(ls examples/commerce/${svc}-service/target/${svc}-service-*.jar | grep -v original | head -1)" stage/${svc}-service.jar
+            cp -r examples/commerce/${svc}-service/target/pit-reports stage/pit-${svc}
+          done
+          cp "$(ls apps/stateverdict-core/target/stateverdict-core-*.jar | grep -v original | head -1)" stage/stateverdict.jar
+          (cd stage && python3 ../scripts/mutation/list-mutants.py mutants.json order=pit-order payment=pit-payment)
+          count=$(jq length stage/mutants.json)
+          # About 5 mutants per shard, at most 20 shards in parallel.
+          shards=$(( (count + 4) / 5 )); [ "${shards}" -gt 20 ] && shards=20
+          echo "count=${count}" >> "$GITHUB_OUTPUT"
+          echo "shards=$(jq -c -n --argjson n "${shards}" '[range(0; $n)]')" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Mutants::${count} mutants, ${shards} StateVerdict shards"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: mutation-input
+          path: stage/
+          retention-days: 14
+
+  stateverdict:
+    name: "StateVerdict on mutants, shard ${{ matrix.shard }}"
+    needs: pit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJson(needs.pit.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/download-artifact@v5
+        with:
+          name: mutation-input
+          path: stage
+      - name: Run the suite against the original services, then against each mutant
+        run: CLI="${PWD}/stage/stateverdict.jar" scripts/mutation/run-stateverdict.sh "${{ matrix.shard }}" "${{ strategy.job-total }}" stage/mutants.json "${PWD}/stage"
+      - id: up1
+        if: always()
+        uses: actions/upload-artifact@v5
+        continue-on-error: true
+        with:
+          name: mutation-shard-${{ matrix.shard }}
+          path: artifacts/mutation/
+          if-no-files-found: ignore
+      - id: up2
+        if: always() && steps.up1.outcome == 'failure'
+        uses: actions/upload-artifact@v5
+        with:
+          name: mutation-shard-${{ matrix.shard }}
+          path: artifacts/mutation/
+          if-no-files-found: ignore
+          overwrite: true
+
+  summarise:
+    name: Summarise and record the evidence
+    needs: [pit, stateverdict]
+    if: always() && needs.pit.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          name: mutation-input
+          path: stage
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: mutation-shard-*
+          path: shards
+          merge-multiple: true
+      - name: Combine, write the record, publish it from main
+        run: |
+          mkdir -p evidence
+          set +e
+          python3 scripts/mutation/summarise.py stage/mutants.json shards evidence/mutation.json
+          set -e
+          status=complete; reason=""
+          [ -s evidence/mutation.json ] || { status=incomplete; reason="no summary"; }
+          set +e
+          python3 scripts/record-evidence.py mutation "${status}" evidence record.json "${reason}"
+          citable=$?
+          set -e
+          published=false
+          if [ "${GITHUB_REF}" = refs/heads/main ]; then
+            scripts/publish-evidence.sh record.json mutation
+            published=true
+          else
+            echo "Not main (${GITHUB_REF}): record not published"
+          fi
+          if [ "${citable}" -ne 0 ]; then
+            echo "::error title=Evidence incomplete::$(jq -r .reason record.json). This run's figures must not be published or cited."
+            exit 1
+          fi
+          if [ "${published}" = true ]; then
+            echo "::notice title=Evidence recorded::runs/mutation/${GITHUB_RUN_ID}.json on the evidence branch (citable)"
+          else
+            echo "::notice title=Evidence not published::complete, but this run is not on main, so its figures must not be cited"
+          fi
+      - uses: actions/upload-artifact@v5
+        if: always()
+        continue-on-error: true
+        with:
+          name: mutation-results
+          path: evidence/
