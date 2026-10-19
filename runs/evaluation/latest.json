@@ -4,10 +4,10 @@
   "citable": true,
   "reason": "",
   "run": {
-    "id": "39191757502",
-    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/39191757502",
-    "commit": "6dd4c5b597a5a81982a33de1da6d061f918cf43d",
-    "event": "push"
+    "id": "39291791791",
+    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/39291791791",
+    "commit": "c94799e10777f7ceb9e247270afef8b7cbe26e02",
+    "event": "schedule"
   },
   "configurations": [
     {
