@@ -62,6 +62,39 @@ Run with the `mutation` workflow. Results are published to the `evidence` branch
 4. **Some mutants will be detected by neither.** Some are equivalent (they change nothing observable)
    and some sit in code that only the planted-bug corpus reaches.
 
+## Results
+
+Source: [mutation 39191757513](https://github.com/sriharichepuri21/stateverdict/actions/runs/39191757513)
+(commit `6dd4c5b`, run on main, record `runs/mutation/39191757513.json` on the `evidence` branch,
+complete and citable). Every shard's original services passed every schedule first.
+
+| 58 mutants | Detected | Notes |
+|---|---|---|
+| JUnit suite (PIT) | **52 (89.7%)** | 52 KILLED, 6 NO_COVERAGE, 0 TIMED_OUT |
+| StateVerdict, rule violated (headline) | **14 (24.1%)** | all 14 also detected by the JUnit suite |
+| StateVerdict, any non-PASS outcome ("noticed") | 36 (62.1%) | all 36 also detected by the JUnit suite |
+| Detected by StateVerdict only | **0** | |
+| Detected by neither | 6 | the 6 NO_COVERAGE mutants; StateVerdict passed all of them too |
+
+**Predictions against results:**
+
+| # | Prediction | Result |
+|---|---|---|
+| 1 | The JUnit suite detects more | Held: 52 against 14 |
+| 2 | StateVerdict detects some mutants the suite misses | **Did not hold: none** |
+| 3 | Correlation-id mutants end INCONCLUSIVE or ERROR | Mostly held: 5 of 6. The exception drops the run id from `refund.requested`; the refund still happens without it, so every schedule passed |
+| 4 | Some mutants are detected by neither | Held: 6, all in code no test reaches |
+
+**What this means.** On mutants of this shop, StateVerdict added nothing over its JUnit suite. PIT's
+mutators make single-point code changes (negate a condition, return null, remove a call), which is
+what unit tests are built to catch. StateVerdict's strength is faults in *delivery* (duplicates,
+delays, races), which no PIT mutator produces, so this comparison does not exercise it; the
+planted-bug corpus does. The suite was also written by the same person who wrote the code.
+
+The mutants StateVerdict passed are informative too. Several change something no rule checks, for
+example a cancel endpoint that always reports success, or a payment limit that is off by one. They
+are gaps in the rules, not in the dispatcher.
+
 ## Known limits
 
 - One small application (two services), so the counts are small and specific to it.
