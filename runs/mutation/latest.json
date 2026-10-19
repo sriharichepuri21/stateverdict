@@ -1,0 +1,352 @@
+{
+  "workflow": "mutation",
+  "status": "complete",
+  "citable": true,
+  "reason": "",
+  "run": {
+    "id": "39191757513",
+    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/39191757513",
+    "commit": "6dd4c5b597a5a81982a33de1da6d061f918cf43d",
+    "event": "push"
+  },
+  "mutation": {
+    "complete": true,
+    "problems": [],
+    "mutants": 58,
+    "junit": {
+      "detected": 52,
+      "percent": 89.7,
+      "pitStatuses": {
+        "KILLED": 52,
+        "NO_COVERAGE": 6
+      }
+    },
+    "stateverdict": {
+      "detected": 14,
+      "percent": 24.1,
+      "startupFailed": 0,
+      "withInconclusive": 19,
+      "withError": 16,
+      "noticed": 36,
+      "noticedPercent": 62.1,
+      "noticedOverlap": {
+        "junitOnly": 16,
+        "both": 36,
+        "neither": 6
+      }
+    },
+    "overlap": {
+      "both": 14,
+      "junitOnly": 38,
+      "stateverdictOnly": 0,
+      "neither": 6,
+      "either": 52,
+      "eitherPercent": 89.7
+    },
+    "perClass": {
+      "order:CheckoutService": {
+        "noticed": 4,
+        "mutants": 6,
+        "junit": 5,
+        "stateverdict": 0,
+        "junitOnly": 5,
+        "neither": 1
+      },
+      "order:CompletionHandler": {
+        "noticed": 2,
+        "mutants": 2,
+        "junit": 2,
+        "stateverdict": 1,
+        "both": 1,
+        "junitOnly": 1
+      },
+      "order:GuardedCompletionHandler": {
+        "noticed": 4,
+        "mutants": 5,
+        "junit": 5,
+        "stateverdict": 4,
+        "both": 4,
+        "junitOnly": 1
+      },
+      "order:OrderController": {
+        "noticed": 3,
+        "mutants": 9,
+        "junit": 8,
+        "stateverdict": 1,
+        "junitOnly": 7,
+        "both": 1,
+        "neither": 1
+      },
+      "order:OrderEventsPublisher": {
+        "noticed": 0,
+        "mutants": 3,
+        "junit": 2,
+        "stateverdict": 0,
+        "junitOnly": 2,
+        "neither": 1
+      },
+      "order:OrderRepository": {
+        "noticed": 4,
+        "mutants": 7,
+        "junit": 7,
+        "stateverdict": 0,
+        "junitOnly": 7
+      },
+      "order:PaymentCompletedListener": {
+        "noticed": 3,
+        "mutants": 3,
+        "junit": 3,
+        "stateverdict": 2,
+        "both": 2,
+        "junitOnly": 1
+      },
+      "payment:CaptureRepository": {
+        "noticed": 2,
+        "mutants": 2,
+        "junit": 2,
+        "stateverdict": 0,
+        "junitOnly": 2
+      },
+      "payment:IdempotentCaptureHandler": {
+        "noticed": 5,
+        "mutants": 7,
+        "junit": 5,
+        "stateverdict": 4,
+        "both": 4,
+        "neither": 2,
+        "junitOnly": 1
+      },
+      "payment:PaymentDecision": {
+        "noticed": 2,
+        "mutants": 3,
+        "junit": 3,
+        "stateverdict": 0,
+        "junitOnly": 3
+      },
+      "payment:PaymentEventsPublisher": {
+        "noticed": 1,
+        "mutants": 3,
+        "junit": 2,
+        "stateverdict": 0,
+        "junitOnly": 2,
+        "neither": 1
+      },
+      "payment:PaymentRequestedListener": {
+        "noticed": 4,
+        "mutants": 4,
+        "junit": 4,
+        "stateverdict": 0,
+        "junitOnly": 4
+      },
+      "payment:RefundRepository": {
+        "noticed": 1,
+        "mutants": 2,
+        "junit": 2,
+        "stateverdict": 1,
+        "both": 1,
+        "junitOnly": 1
+      },
+      "payment:RefundRequestedListener": {
+        "noticed": 1,
+        "mutants": 2,
+        "junit": 2,
+        "stateverdict": 1,
+        "junitOnly": 1,
+        "both": 1
+      }
+    },
+    "stateverdictOnly": [],
+    "junitOnly": [
+      {
+        "id": "order:OrderController.badRequest:L76:NullReturnValsMutator:7",
+        "description": "replaced return value with null for dev/stateverdict/examples/order/OrderController::badRequest",
+        "killingTest": "dev.stateverdict.examples.order.CheckoutFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.CheckoutFlowTest]/[method:unsafeCorrelationIdIsRejected()]"
+      },
+      {
+        "id": "order:OrderController.cancel:L69:NullReturnValsMutator:40",
+        "description": "replaced return value with null for dev/stateverdict/examples/order/OrderController::cancel",
+        "killingTest": "dev.stateverdict.examples.order.GuardedCompletionFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.GuardedCompletionFlowTest]/[method:customerCancellationWinsOverALateCapturedPayment()]"
+      },
+      {
+        "id": "order:OrderController.create:L49:NegateConditionalsMutator:4",
+        "description": "negated conditional",
+        "killingTest": "dev.stateverdict.examples.order.CheckoutFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.CheckoutFlowTest]/[method:unsafeCorrelationIdIsRejected()]"
+      },
+      {
+        "id": "order:OrderController.create:L49:NegateConditionalsMutator:9",
+        "description": "negated conditional",
+        "killingTest": "dev.stateverdict.examples.order.CheckoutFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.CheckoutFlowTest]/[method:unsafeCorrelationIdIsRejected()]"
+      },
+      {
+        "id": "order:OrderController.create:L54:NullReturnValsMutator:37",
+        "description": "replaced return value with null for dev/stateverdict/examples/order/OrderController::create",
+        "killingTest": "dev.stateverdict.examples.order.GuardedCompletionFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.GuardedCompletionFlowTest]/[method:declinedPaymentCancelsAPendingOrder()]"
+      },
+      {
+        "id": "order:OrderController.lambda$cancel$0:L70:NegateConditionalsMutator:4",
+        "description": "negated conditional",
+        "killingTest": "dev.stateverdict.examples.order.GuardedCompletionFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.GuardedCompletionFlowTest]/[method:customerCancellationWinsOverALateCapturedPayment()]"
+      },
+      {
+        "id": "order:OrderController.lambda$cancel$1:L71:NullReturnValsMutator:5",
+        "description": "replaced return value with null for dev/stateverdict/examples/order/OrderController::lambda$cancel$1",
+        "killingTest": "dev.stateverdict.examples.order.GuardedCompletionFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.GuardedCompletionFlowTest]/[method:onlyAPendingOrderCanBeCancelled()]"
+      },
+      {
+        "id": "order:OrderRepository.cancelIfPending:L53:NegateConditionalsMutator:16",
+        "description": "negated conditional",
+        "killingTest": "dev.stateverdict.examples.order.GuardedCompletionFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.GuardedCompletionFlowTest]/[method:customerCancellationWinsOverALateCapturedPayment()]"
+      },
+      {
+        "id": "order:OrderRepository.cancelIfPending:L47:BooleanTrueReturnValsMutator:25",
+        "description": "replaced boolean return with true for dev/stateverdict/examples/order/OrderRepository::cancelIfPending",
+        "killingTest": "dev.stateverdict.examples.order.GuardedCompletionFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.GuardedCompletionFlowTest]/[method:customerCancellationWinsOverALateCapturedPayment()]"
+      },
+      {
+        "id": "order:OrderRepository.findById:L35:EmptyObjectReturnValsMutator:21",
+        "description": "replaced return value with Optional.empty for dev/stateverdict/examples/order/OrderRepository::findById",
+        "killingTest": "dev.stateverdict.examples.order.CheckoutFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.CheckoutFlowTest]/[method:unknownOrderReturns404()]"
+      },
+      {
+        "id": "order:OrderRepository.insertPending:L22:NullReturnValsMutator:33",
+        "description": "replaced return value with null for dev/stateverdict/examples/order/OrderRepository::insertPending",
+        "killingTest": "dev.stateverdict.examples.order.GuardedCompletionFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.GuardedCompletionFlowTest]/[method:declinedPaymentCancelsAPendingOrder()]"
+      },
+      {
+        "id": "order:OrderRepository.map:L95:NegateConditionalsMutator:49",
+        "description": "negated conditional",
+        "killingTest": "dev.stateverdict.examples.order.GuardedCompletionFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.GuardedCompletionFlowTest]/[method:declinedPaymentCancelsAPendingOrder()]"
+      },
+      {
+        "id": "order:OrderRepository.map:L89:NullReturnValsMutator:61",
+        "description": "replaced return value with null for dev/stateverdict/examples/order/OrderRepository::map",
+        "killingTest": "dev.stateverdict.examples.order.GuardedCompletionFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.GuardedCompletionFlowTest]/[method:declinedPaymentCancelsAPendingOrder()]"
+      },
+      {
+        "id": "order:OrderRepository.setStatusIfPending:L81:PrimitiveReturnsMutator:22",
+        "description": "replaced int return with 0 for dev/stateverdict/examples/order/OrderRepository::setStatusIfPending",
+        "killingTest": "dev.stateverdict.examples.order.GuardedCompletionFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.GuardedCompletionFlowTest]/[method:declinedPaymentCancelsAPendingOrder()]"
+      },
+      {
+        "id": "order:CheckoutService.checkout:L48:ConditionalsBoundaryMutator:6",
+        "description": "changed conditional boundary",
+        "killingTest": "dev.stateverdict.examples.order.CheckoutFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.CheckoutFlowTest]/[method:nonPositiveAmountIsRejected()]"
+      },
+      {
+        "id": "order:CheckoutService.checkout:L48:NegateConditionalsMutator:6",
+        "description": "negated conditional",
+        "killingTest": "dev.stateverdict.examples.order.CheckoutFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.CheckoutFlowTest]/[method:nonPositiveAmountIsRejected()]"
+      },
+      {
+        "id": "order:CheckoutService.checkout:L55:VoidMethodCallMutator:44",
+        "description": "removed call to dev/stateverdict/examples/order/CheckoutService::publish",
+        "killingTest": "dev.stateverdict.examples.order.GuardedCompletionFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.GuardedCompletionFlowTest]/[method:declinedPaymentCancelsAPendingOrder()]"
+      },
+      {
+        "id": "order:CheckoutService.checkout:L59:NullReturnValsMutator:79",
+        "description": "replaced return value with null for dev/stateverdict/examples/order/CheckoutService::checkout",
+        "killingTest": "dev.stateverdict.examples.order.GuardedCompletionFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.GuardedCompletionFlowTest]/[method:declinedPaymentCancelsAPendingOrder()]"
+      },
+      {
+        "id": "order:CheckoutService.publish:L66:NegateConditionalsMutator:20",
+        "description": "negated conditional",
+        "killingTest": "dev.stateverdict.examples.order.GuardedCompletionFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.GuardedCompletionFlowTest]/[method:declinedPaymentCancelsAPendingOrder()]"
+      },
+      {
+        "id": "order:GuardedCompletionHandler.lambda$apply$0:L47:BooleanTrueReturnValsMutator:8",
+        "description": "replaced Boolean return with True for dev/stateverdict/examples/order/GuardedCompletionHandler::lambda$apply$0",
+        "killingTest": "dev.stateverdict.examples.order.GuardedCompletionFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.GuardedCompletionFlowTest]/[method:customerCancellationWinsOverALateCapturedPayment()]"
+      },
+      {
+        "id": "order:PaymentCompletedListener.onRecord:L34:NegateConditionalsMutator:22",
+        "description": "negated conditional",
+        "killingTest": "dev.stateverdict.examples.order.GuardedCompletionFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.GuardedCompletionFlowTest]/[method:declinedPaymentCancelsAPendingOrder()]"
+      },
+      {
+        "id": "order:OrderEventsPublisher.refundRequested:L28:NegateConditionalsMutator:29",
+        "description": "negated conditional",
+        "killingTest": "dev.stateverdict.examples.order.GuardedCompletionFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.GuardedCompletionFlowTest]/[method:customerCancellationWinsOverALateCapturedPayment()]"
+      },
+      {
+        "id": "order:OrderEventsPublisher.refundRequested:L39:NullReturnValsMutator:88",
+        "description": "replaced return value with null for dev/stateverdict/examples/order/OrderEventsPublisher::refundRequested",
+        "killingTest": "dev.stateverdict.examples.order.GuardedCompletionFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.GuardedCompletionFlowTest]/[method:customerCancellationWinsOverALateCapturedPayment()]"
+      },
+      {
+        "id": "order:CompletionHandler.targetStatus:L18:EmptyObjectReturnValsMutator:15",
+        "description": "replaced return value with \"\" for dev/stateverdict/examples/order/CompletionHandler::targetStatus",
+        "killingTest": "dev.stateverdict.examples.order.GuardedCompletionFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.order.GuardedCompletionFlowTest]/[method:declinedPaymentCancelsAPendingOrder()]"
+      },
+      {
+        "id": "payment:IdempotentCaptureHandler.lambda$capture$0:L67:EmptyObjectReturnValsMutator:33",
+        "description": "replaced return value with \"\" for dev/stateverdict/examples/payment/IdempotentCaptureHandler::lambda$capture$0",
+        "killingTest": "dev.stateverdict.examples.payment.IdempotentCaptureFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.payment.IdempotentCaptureFlowTest]/[method:concurrentCopiesOfTheSameEventCommitExactlyOneCapture()]"
+      },
+      {
+        "id": "payment:PaymentRequestedListener.header:L48:NegateConditionalsMutator:11",
+        "description": "negated conditional",
+        "killingTest": "dev.stateverdict.examples.payment.ControlledDispatchFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.payment.ControlledDispatchFlowTest]/[method:withoutAnInterventionTheEventIsDeliveredOnceAndJournaled()]"
+      },
+      {
+        "id": "payment:PaymentRequestedListener.header:L48:EmptyObjectReturnValsMutator:24",
+        "description": "replaced return value with \"\" for dev/stateverdict/examples/payment/PaymentRequestedListener::header",
+        "killingTest": "dev.stateverdict.examples.payment.ControlledDispatchFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.payment.ControlledDispatchFlowTest]/[method:withoutAnInterventionTheEventIsDeliveredOnceAndJournaled()]"
+      },
+      {
+        "id": "payment:PaymentRequestedListener.lambda$onRecord$0:L43:VoidMethodCallMutator:7",
+        "description": "removed call to dev/stateverdict/examples/payment/CaptureHandler::capture",
+        "killingTest": "dev.stateverdict.examples.payment.ControlledDispatchFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.payment.ControlledDispatchFlowTest]/[method:withoutAnInterventionTheEventIsDeliveredOnceAndJournaled()]"
+      },
+      {
+        "id": "payment:PaymentRequestedListener.onRecord:L42:VoidMethodCallMutator:34",
+        "description": "removed call to dev/stateverdict/dispatch/Dispatcher::dispatch",
+        "killingTest": "dev.stateverdict.examples.payment.ControlledDispatchFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.payment.ControlledDispatchFlowTest]/[method:withoutAnInterventionTheEventIsDeliveredOnceAndJournaled()]"
+      },
+      {
+        "id": "payment:PaymentDecision.decide:L20:ConditionalsBoundaryMutator:7",
+        "description": "changed conditional boundary",
+        "killingTest": "dev.stateverdict.examples.payment.IdempotentCaptureFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.payment.IdempotentCaptureFlowTest]/[method:twoDifferentEventsForTheSameOrderAreBothCaptured()]"
+      },
+      {
+        "id": "payment:PaymentDecision.decide:L20:NegateConditionalsMutator:7",
+        "description": "negated conditional",
+        "killingTest": "dev.stateverdict.examples.payment.IdempotentCaptureFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.payment.IdempotentCaptureFlowTest]/[method:twoDifferentEventsForTheSameOrderAreBothCaptured()]"
+      },
+      {
+        "id": "payment:PaymentDecision.decide:L20:EmptyObjectReturnValsMutator:15",
+        "description": "replaced return value with \"\" for dev/stateverdict/examples/payment/PaymentDecision::decide",
+        "killingTest": "dev.stateverdict.examples.payment.IdempotentCaptureFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.payment.IdempotentCaptureFlowTest]/[method:twoDifferentEventsForTheSameOrderAreBothCaptured()]"
+      },
+      {
+        "id": "payment:PaymentEventsPublisher.completed:L36:NegateConditionalsMutator:35",
+        "description": "negated conditional",
+        "killingTest": "dev.stateverdict.examples.payment.IdempotentCaptureFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.payment.IdempotentCaptureFlowTest]/[method:twoDifferentEventsForTheSameOrderAreBothCaptured()]"
+      },
+      {
+        "id": "payment:PaymentEventsPublisher.completed:L47:NullReturnValsMutator:95",
+        "description": "replaced return value with null for dev/stateverdict/examples/payment/PaymentEventsPublisher::completed",
+        "killingTest": "dev.stateverdict.examples.payment.IdempotentCaptureFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.payment.IdempotentCaptureFlowTest]/[method:twoDifferentEventsForTheSameOrderAreBothCaptured()]"
+      },
+      {
+        "id": "payment:CaptureRepository.insert:L22:NullReturnValsMutator:38",
+        "description": "replaced return value with null for dev/stateverdict/examples/payment/CaptureRepository::insert",
+        "killingTest": "dev.stateverdict.examples.payment.IdempotentCaptureFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.payment.IdempotentCaptureFlowTest]/[method:twoDifferentEventsForTheSameOrderAreBothCaptured()]"
+      },
+      {
+        "id": "payment:CaptureRepository.map:L48:NullReturnValsMutator:42",
+        "description": "replaced return value with null for dev/stateverdict/examples/payment/CaptureRepository::map",
+        "killingTest": "dev.stateverdict.examples.payment.IdempotentCaptureFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.payment.IdempotentCaptureFlowTest]/[method:twoDifferentEventsForTheSameOrderAreBothCaptured()]"
+      },
+      {
+        "id": "payment:RefundRequestedListener.onRecord:L40:NegateConditionalsMutator:22",
+        "description": "negated conditional",
+        "killingTest": "dev.stateverdict.examples.payment.RefundFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.payment.RefundFlowTest]/[method:everyCaptureOfADoubleChargedOrderIsRefunded()]"
+      },
+      {
+        "id": "payment:RefundRepository.refundAllCaptures:L28:PrimitiveReturnsMutator:17",
+        "description": "replaced int return with 0 for dev/stateverdict/examples/payment/RefundRepository::refundAllCaptures",
+        "killingTest": "dev.stateverdict.examples.payment.RefundFlowTest.[engine:junit-jupiter]/[class:dev.stateverdict.examples.payment.RefundFlowTest]/[method:everyCaptureOfADoubleChargedOrderIsRefunded()]"
+      }
+    ]
+  }
+}
