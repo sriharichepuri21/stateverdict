@@ -4,8 +4,8 @@
   "citable": true,
   "reason": "",
   "run": {
-    "id": "39286113919",
-    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/39286113919",
+    "id": "39438490892",
+    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/39438490892",
     "commit": "c94799e10777f7ceb9e247270afef8b7cbe26e02",
     "event": "schedule"
   },
@@ -14,8 +14,8 @@
       "seed": 42,
       "schedules": 60,
       "verdicts": {
-        "FAIL": 35,
-        "PASS": 25
+        "PASS": 25,
+        "FAIL": 35
       },
       "findings": 35,
       "rulesViolated": [
@@ -35,21 +35,21 @@
     },
     "shrinks": {
       "no-fault": {
-        "status": "MINIMIZED",
+        "status": "UNRELIABLE",
         "targetRules": [
           "SV-003"
         ],
         "originalInterventions": 1,
         "minimizedInterventions": 1,
         "reductionPercent": 0,
-        "candidatesTried": 1,
-        "runs": 21,
-        "durationMs": 147629,
-        "originalFailures": 10,
-        "minimizedFailures": 10,
+        "candidatesTried": 0,
+        "runs": 10,
+        "durationMs": 67765,
+        "originalFailures": 9,
+        "minimizedFailures": 9,
         "confirmTrials": 10,
         "minimized": {
-          "name": "explore-s42-21-min",
+          "name": "explore-s42-21",
           "steps": [
             {
               "type": "PLACE_ORDER",
@@ -72,7 +72,7 @@
         "reductionPercent": 67,
         "candidatesTried": 5,
         "runs": 29,
-        "durationMs": 134315,
+        "durationMs": 139577,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -107,7 +107,7 @@
         "reductionPercent": 67,
         "candidatesTried": 3,
         "runs": 27,
-        "durationMs": 191204,
+        "durationMs": 190869,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -183,10 +183,10 @@
       "seed": 42,
       "schedules": 60,
       "verdicts": {
-        "PASS": 15,
-        "FAIL": 45
+        "FAIL": 44,
+        "PASS": 16
       },
-      "findings": 45,
+      "findings": 44,
       "rulesViolated": [
         "SAGA-1",
         "SAGA-2",
@@ -204,7 +204,7 @@
         "reductionPercent": 80,
         "candidatesTried": 10,
         "runs": 38,
-        "durationMs": 1019156,
+        "durationMs": 1018080,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -240,7 +240,7 @@
         "reductionPercent": 75,
         "candidatesTried": 6,
         "runs": 32,
-        "durationMs": 245352,
+        "durationMs": 245413,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -276,7 +276,7 @@
         "reductionPercent": 75,
         "candidatesTried": 4,
         "runs": 30,
-        "durationMs": 394409,
+        "durationMs": 393937,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -302,7 +302,7 @@
         "reductionPercent": 67,
         "candidatesTried": 3,
         "runs": 27,
-        "durationMs": 168806,
+        "durationMs": 168417,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
