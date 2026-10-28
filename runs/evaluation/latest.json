@@ -4,8 +4,8 @@
   "citable": true,
   "reason": "",
   "run": {
-    "id": "40536799436",
-    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/40536799436",
+    "id": "40729828888",
+    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/40729828888",
     "commit": "c94799e10777f7ceb9e247270afef8b7cbe26e02",
     "event": "schedule"
   },
@@ -103,8 +103,8 @@
       "config": "M03",
       "kind": "defect",
       "conventional": {
-        "detected": true,
-        "failed": 1,
+        "detected": false,
+        "failed": 0,
         "testsRun": 38
       },
       "stateverdict": {
