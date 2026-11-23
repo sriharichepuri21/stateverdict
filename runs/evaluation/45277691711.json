@@ -1,0 +1,12 @@
+{
+  "workflow": "evaluation",
+  "status": "incomplete",
+  "citable": false,
+  "reason": "only 8 of 10 configuration results",
+  "run": {
+    "id": "45277691711",
+    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/45277691711",
+    "commit": "c94799e10777f7ceb9e247270afef8b7cbe26e02",
+    "event": "schedule"
+  }
+}
