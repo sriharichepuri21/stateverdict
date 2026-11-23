@@ -4,8 +4,8 @@
   "citable": true,
   "reason": "",
   "run": {
-    "id": "45048194828",
-    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/45048194828",
+    "id": "45270312701",
+    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/45270312701",
     "commit": "c94799e10777f7ceb9e247270afef8b7cbe26e02",
     "event": "schedule"
   },
@@ -35,21 +35,21 @@
     },
     "shrinks": {
       "no-fault": {
-        "status": "MINIMIZED",
+        "status": "UNRELIABLE",
         "targetRules": [
           "SV-003"
         ],
         "originalInterventions": 1,
         "minimizedInterventions": 1,
         "reductionPercent": 0,
-        "candidatesTried": 1,
-        "runs": 21,
-        "durationMs": 147571,
-        "originalFailures": 10,
-        "minimizedFailures": 10,
+        "candidatesTried": 0,
+        "runs": 10,
+        "durationMs": 67949,
+        "originalFailures": 9,
+        "minimizedFailures": 9,
         "confirmTrials": 10,
         "minimized": {
-          "name": "explore-s42-21-min",
+          "name": "explore-s42-21",
           "steps": [
             {
               "type": "PLACE_ORDER",
@@ -72,7 +72,7 @@
         "reductionPercent": 67,
         "candidatesTried": 5,
         "runs": 29,
-        "durationMs": 139494,
+        "durationMs": 139429,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -107,7 +107,7 @@
         "reductionPercent": 67,
         "candidatesTried": 3,
         "runs": 27,
-        "durationMs": 190908,
+        "durationMs": 191135,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -183,8 +183,8 @@
       "seed": 42,
       "schedules": 60,
       "verdicts": {
-        "FAIL": 44,
-        "PASS": 16
+        "PASS": 16,
+        "FAIL": 44
       },
       "findings": 44,
       "rulesViolated": [
@@ -204,7 +204,7 @@
         "reductionPercent": 80,
         "candidatesTried": 10,
         "runs": 38,
-        "durationMs": 1019848,
+        "durationMs": 1019788,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -240,7 +240,7 @@
         "reductionPercent": 75,
         "candidatesTried": 6,
         "runs": 32,
-        "durationMs": 246163,
+        "durationMs": 246028,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -276,7 +276,7 @@
         "reductionPercent": 75,
         "candidatesTried": 4,
         "runs": 30,
-        "durationMs": 394494,
+        "durationMs": 395160,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -302,7 +302,7 @@
         "reductionPercent": 67,
         "candidatesTried": 3,
         "runs": 27,
-        "durationMs": 169359,
+        "durationMs": 169025,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
