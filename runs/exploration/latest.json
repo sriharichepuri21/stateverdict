@@ -4,8 +4,8 @@
   "citable": true,
   "reason": "",
   "run": {
-    "id": "45881211539",
-    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/45881211539",
+    "id": "46053897035",
+    "url": "https://github.com/sriharichepuri21/stateverdict/actions/runs/46053897035",
     "commit": "c94799e10777f7ceb9e247270afef8b7cbe26e02",
     "event": "schedule"
   },
@@ -14,8 +14,8 @@
       "seed": 42,
       "schedules": 60,
       "verdicts": {
-        "PASS": 25,
-        "FAIL": 35
+        "FAIL": 35,
+        "PASS": 25
       },
       "findings": 35,
       "rulesViolated": [
@@ -44,7 +44,7 @@
         "reductionPercent": 0,
         "candidatesTried": 0,
         "runs": 10,
-        "durationMs": 67747,
+        "durationMs": 68082,
         "originalFailures": 9,
         "minimizedFailures": 9,
         "confirmTrials": 10,
@@ -72,7 +72,7 @@
         "reductionPercent": 67,
         "candidatesTried": 5,
         "runs": 29,
-        "durationMs": 139664,
+        "durationMs": 139582,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -107,7 +107,7 @@
         "reductionPercent": 67,
         "candidatesTried": 3,
         "runs": 27,
-        "durationMs": 191808,
+        "durationMs": 191647,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -183,8 +183,8 @@
       "seed": 42,
       "schedules": 60,
       "verdicts": {
-        "FAIL": 44,
-        "PASS": 16
+        "PASS": 16,
+        "FAIL": 44
       },
       "findings": 44,
       "rulesViolated": [
@@ -204,7 +204,7 @@
         "reductionPercent": 80,
         "candidatesTried": 10,
         "runs": 38,
-        "durationMs": 1018494,
+        "durationMs": 1018891,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -239,8 +239,8 @@
         "minimizedInterventions": 1,
         "reductionPercent": 75,
         "candidatesTried": 6,
-        "runs": 32,
-        "durationMs": 245477,
+        "runs": 33,
+        "durationMs": 254121,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -276,7 +276,7 @@
         "reductionPercent": 75,
         "candidatesTried": 4,
         "runs": 30,
-        "durationMs": 394038,
+        "durationMs": 394439,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
@@ -302,7 +302,7 @@
         "reductionPercent": 67,
         "candidatesTried": 3,
         "runs": 27,
-        "durationMs": 168473,
+        "durationMs": 169084,
         "originalFailures": 10,
         "minimizedFailures": 10,
         "confirmTrials": 10,
